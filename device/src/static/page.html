@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Picture Frame</title>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .show {
+            display: flex;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 230px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: #2563eb;
+        }
+
+        label {
+            display: block;
+            color: #333333;
+            text-align: left;
+            margin-top: 10px;
+        }
+
+        .text-input {
+            box-sizing: border-box;
+            padding: 8px;
+            margin-top: 5px;
+            border: 0px solid #d1d5db;
+            border-radius: 5px;
+            width: 100%;
+            box-shadow: inset 0 0px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .submit-btn {
+            background-color: #3b82f6;
+            box-shadow: 0 0px 10px rgba(0, 0, 0, 0.2);
+            color: white;
+            padding: 10px;
+            width: 100%;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .submit-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .networks {
+            margin-top: 15px;
+            border-radius: 5px;
+            height: 110px;
+            width: 100%;
+            background-color: #ffffff;
+            overflow-y: auto;
+            box-shadow: inset 0 0px 10px rgba(0, 0, 0, 0.2);
+            scrollbar-width: auto;
+            scrollbar-color: #575757 #f0f0f0;
+            display: grid;
+        }
+
+        .network {
+            padding: 5px;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .network p {
+            font-size: 15px;
+            margin: 0;
+        }
+
+        .seperator-line {
+            height: 1px;
+            background-color: #e3e4e6;
+        }
+
+        .connect-btn {
+            background-color: #3b82f6;
+            color: white;
+            padding: 3px 5px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s ease;
+            margin-right: 2px;
+            font-size: 13px;
+            text-align: center;
+            box-shadow: inset 0 0px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .connect-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .loader {
+            margin-top: 10px;
+            margin-bottom: 10px;
+
+            width: 40px;
+            aspect-ratio: 4;
+            background: radial-gradient(circle closest-side, #e2e2e2 70%, #0000) 0/calc(100%/3) 100% space;
+            clip-path: inset(0 100% 0 0);
+            animation: l1 1s steps(4) infinite;
+        }
+
+        @keyframes l1 {
+            to {
+                clip-path: inset(0 -34% 0 0)
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index:20;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; width: 250px;">
+            <h2>Enter WiFi Password for <i><span id="ssid-title"></span></i></h2>
+            <form id="wifiForm" action="/setWifiCredentials" method="POST">
+                <input type="hidden" id="ssid-input" name="ssid">
+                <label for="passwordInput">Password:</label>
+                <input type="password" id="password-input" name="password" class="text-input" required>
+                <button type="submit" class="submit-btn" style="margin-top: 10px;">Connect</button>
+                <button type="button" class="submit-btn" style="background: #d31625; margin-top: 10px;" onclick="closeOverlay()">Cancel</button>
+            </form>
+        </div>
+    </div>
+    <div class="container">
+        <h1>Welcome!</h1>
+        <p>Set up your live picture frame by connecting to your WiFi.</p>
+        <p>Choose a network or enter your WiFi details manually.</p>
+        <button type="submit" class="submit-btn inactive" onclick="searchWiFi()">Scan for WiFi networks</button>
+
+        <div class="networks" id="network-list">
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: center; width: 100%;">
+            <div class="seperator-line" style="flex: 1;"></div>
+            <p style="color: #929292; font-size: 13px; margin-left: 10px; margin-right: 10px;">Or</p>
+            <div class="seperator-line" style="flex: 1;"></div>
+        </div>
+
+        <form action="/setWifiCredentials" method="POST">
+
+            <label for="ssid" style="margin-top: 0;">Ssid:</label>
+            <input type="text" class="text-input" id="ssid" name="ssid" required>
+
+            <label for="password">Password:</label>
+            <input type="password" class="text-input" id="password" name="password" required>
+
+            <button type="submit" class="submit-btn" style="margin-top: 15px;">Connect</button>
+        </form>
+    </div>
+</body>
+<script>
+    function searchWiFi() {
+        const networkList = document.getElementById("network-list");
+        networkList.innerHTML = '<div style="display: flex; width: 100%; justify-content: center;"><div class="loader"></div></div>';
+        fetch('/searchWifi')
+            .then(response => response.json())
+            .then(data => {
+                networkList.innerHTML = "";
+
+                data.sort((a, b) => b.SignalStrength - a.SignalStrength);
+
+                data.forEach(element => {
+                    const networkDiv = document.createElement('div');
+                    networkDiv.className = 'network';
+
+                    const networkName = document.createElement('p');
+                    networkName.textContent = element.SSID;
+
+                    const connectButton = document.createElement('button');
+                    connectButton.className = 'connect-btn';
+                    connectButton.textContent = 'Connect';
+                    connectButton.onclick = () => enterPasswordForSsid(element.SSID);
+
+                    networkDiv.appendChild(networkName);
+                    networkDiv.appendChild(connectButton);
+
+                    networkList.appendChild(networkDiv);
+                    
+                    const seperator = document.createElement('div');
+                    seperator.className = 'seperator-line';
+                    networkList.appendChild(seperator);
+                });
+            })
+    }
+
+    function enterPasswordForSsid(ssid) {
+        const el = document.getElementById("overlay");
+        el.classList.remove("hidden");
+        el.classList.add("show");
+
+        document.getElementById("ssid-title").innerHTML = ssid;
+        document.getElementById("ssid-input").value = ssid;
+    }
+
+    function closeOverlay() {
+        const el = document.getElementById("overlay");
+        el.classList.remove("show");
+        el.classList.add("hidden");
+    }
+</script>
+
+</html>
