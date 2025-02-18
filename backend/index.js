@@ -1,5 +1,11 @@
 const express = require('express');
-const EventEmitter = require('events');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const port = process.env.PORT || 7734;
+
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+app.get('/', (req, res) => res.send(200));
+
+app.listen(port, () => console.log("[backend]: Application Started on", port));
