@@ -11,3 +11,9 @@ Create a `.env` file with following variables:
 ```
 sudo sudo docker-compose -f docker-compose.dev.yml up --build
 ```
+
+#### Running tests
+
+```
+sudo docker compose -f 'docker-compose.dev.yml' up --build 'test'
+```

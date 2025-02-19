@@ -15,12 +15,13 @@ services:
       - DB_HOST=db
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
+      - DB_NAME=${POSTGRES_NAME}
       - DB_PORT=5432
       - PATH=$PATH:/app/node_modules/.bin
     depends_on:
       - db
     command: npm run dev
+  
 
   db:
     image: postgres:15
@@ -33,5 +34,20 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend_test
+    environment:
+      - NODE_ENV=test
+      - DB_HOST=db
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_NAME}
+      - DB_PORT=5432
+    depends_on:
+      - db
+    command: npm test
 volumes:
   pgdata:
