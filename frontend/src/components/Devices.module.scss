@@ -1,22 +1,22 @@
 .root {
-    &:hover {
-      .controls {
-        opacity: 1;
-      }
+  &:hover {
+    .controls {
+      opacity: 1;
     }
   }
+}
 
 .controls {
-    transition: opacity 150ms ease;
-    opacity: 0;
+  transition: opacity 150ms ease;
+  opacity: 0;
 }
 
 .indicator {
-    width: 4px;
-    height: 4px;
-    transition: width 250ms ease;
+  width: 4px;
+  height: 4px;
+  transition: width 250ms ease;
 
-    &[data-active] {
-        width: 10px;
-    }
+  &[data-active] {
+    width: 10px;
+  }
 }

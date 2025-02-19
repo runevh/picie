@@ -1,0 +1,71 @@
+import { createContext, useState, ReactNode, useEffect, useContext } from "react";
+import { authService } from "../services/AuthService";
+import { ResponseBody } from "../services/api";
+
+interface User {
+  username: string,
+  email: string,
+  firstName: string,
+  lastName: string,
+  admin: boolean
+}
+
+interface UserContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  login: (username: string, password: string) => Promise<ResponseBody>;
+  register: (username: string, email: string, password: string, firstName: string, lastName: string) => Promise<ResponseBody>;
+  logout: () => void;
+}
+
+const UserContext = createContext<UserContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await authService.fetchUser();
+        if (res.success && res.data) {
+          console.log(res.data.data);
+          setUser(res.data.data);
+        }
+      } catch (e) {
+
+      }
+    }
+    fetchUser();
+  }, []);
+
+  const register = async (username: string, email: string, password: string, firstName: string, lastName: string): Promise<ResponseBody> => {
+    const res = await authService.register(username, email, password, firstName, lastName);
+    if (res.success) setUser(res.data.user);
+    return res;
+  }
+
+  const login = async (username: string, password: string): Promise<ResponseBody> => {
+    const res = await authService.login(username, password);
+    if (res.success) setUser(res.data.user);
+    console.log(res.data.user);
+    return res;
+  };
+
+  const logout = async () => {
+    await authService.logout();
+    setUser(null);
+  };
+
+  return (
+    <UserContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout }}>
+      {children}
+    </UserContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(UserContext);
+  if (!context) throw new Error("useAuth must be used within a UserProvider");
+  return context;
+}
+

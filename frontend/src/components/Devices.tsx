@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Carousel } from '@mantine/carousel';
-import { Image, Button, Card, Stack, Text, Title, Group, Badge, Indicator, Avatar, Modal, Tooltip, TextInput, Stepper, PinInput, Center } from "@mantine/core";
-import classes from './Devices.module.scss';
+import { Image, Button, Card, Stack, Text, Title, Group, Badge, Indicator, Avatar, Modal, TextInput, Stepper, PinInput, Center } from "@mantine/core";
+import styles from './Devices.module.scss';
 import { IconPlugConnected, IconPlus, IconSearch } from "@tabler/icons-react";
 
 interface DeviceProps {
@@ -30,7 +30,7 @@ export const DeviceCard: React.FC<DeviceProps> = (props) => {
                 <Carousel
                     loop
                     withIndicators
-                    classNames={classes}
+                    classNames={styles}
                 >
                     {slides}
                 </Carousel>
@@ -55,7 +55,7 @@ export const DeviceCard: React.FC<DeviceProps> = (props) => {
 
 function Devices() {
 
-    const [devices, setDevices] = useState([]);
+    //const [devices, setDevices] = useState([]);
     const [addProgress, setAddProgress] = useState(0);
     const [showAddDevice, setShowAddDevice] = useState(false);
 

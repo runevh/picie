@@ -25,7 +25,7 @@ describe('POST /api/register', () => {
             .post('/api/register')
             .send(newUser);
 
-        expect(response.status).toBe(201);
+        expect(response.status).toBe(200);
         expect(response.body.user.email).toBe(newUser.email);
         expect(response.body.user.username).toBe(newUser.username);
     
@@ -67,7 +67,7 @@ describe('POST /api/register', () => {
         newUser.username = "test_user.65sdda";
 
         const response4 = await request(app).post('/api/register').send(newUser);
-        expect(response4.status).toBe(201);
+        expect(response4.status).toBe(200);
         expect(response4.body.user.email).toBe(newUser.email);
         expect(response4.body.user.username).toBe(newUser.username);
 
@@ -84,7 +84,7 @@ describe('POST /api/register', () => {
 
         newUser.username = "abc";
         const response7 = await request(app).post('/api/register').send(newUser);
-        expect(response7.status).toBe(201);
+        expect(response7.status).toBe(200);
         expect(response7.body.user.email).toBe(newUser.email);
         expect(response7.body.user.username).toBe(newUser.username);
     });
@@ -99,7 +99,7 @@ describe('POST /api/register', () => {
         };
 
         const response1 = await request(app).post('/api/register').send(newUser);
-        expect(response1.status).toBe(201);
+        expect(response1.status).toBe(200);
         expect(response1.body.user.firstName).toBe(newUser.firstName);
 
         newUser.firstName = "New123";
@@ -154,14 +154,14 @@ describe('POST /api/register', () => {
         };
 
         const response1 = await request(app).post('/api/register').send(newUser);
-        expect(response1.status).toBe(201);
+        expect(response1.status).toBe(200);
         expect(response1.body.user.lastName).toBe(newUser.lastName);
 
         newUser.username = 'tvalid_user3',
         newUser.lastName = "";
         newUser.email = 'tuser2@example.com';
         const response2 = await request(app).post('/api/register').send(newUser);
-        expect(response2.status).toBe(201);
+        expect(response2.status).toBe(200);
         expect(response2.body.user.lastName).toBe(newUser.lastName);
         
         newUser.username = 'tvalid_user4',
@@ -178,7 +178,7 @@ describe('POST /api/register', () => {
         newUser.lastName = "Van Der Woodsen";
         newUser.email = 'tuser5@example.com';
         const response5 = await request(app).post('/api/register').send(newUser);
-        expect(response5.status).toBe(201);
+        expect(response5.status).toBe(200);
         expect(response5.body.user.lastName).toBe(newUser.lastName);
 
         newUser.username = 'tvalid_user6',

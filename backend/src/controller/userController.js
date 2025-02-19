@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 
 const isValidUserInfo = (username, firstName, lastName, email) => {
+
     const usernameRegex = /^(?=(.*[a-z]){3,})[a-z0-9_.]{3,16}$/; // a-z, A-Z, _, . with at least 3 letters
     if (!username || !usernameRegex.test(username)) {
         return false;
@@ -30,11 +31,12 @@ const isValidUserInfo = (username, firstName, lastName, email) => {
 const register = async (req, res) => {
     const { username, email, password, firstName, lastName } = req.body;
     if (!isValidUserInfo(username, firstName, lastName, email)) {
-        return res.status(400).json({ message: 'Incorrect userinfo' });
+        return res.status(400).json({ message: 'Userinfo is invalid' });
     }
 
+    // Check if password is correct
+
     try {
-        // Check if user data already exists
         const existing = await User.findOne({
             where: {
                 [Op.or]: [{ email: email }, { username: username }],
@@ -42,7 +44,7 @@ const register = async (req, res) => {
         });
 
         if (existing) {
-            return res.status(400).json({ message: 'Email or username already in use.' });
+            return res.status(400).json({ message: 'The provided email or username is already in use.' });
         }
 
         const user = await User.create({
@@ -53,12 +55,21 @@ const register = async (req, res) => {
             lastName
         });
 
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign(
+            { id: user.id, username: user.username },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
 
-        res.status(201).json({
-            message: 'User registered successfully!',
-            user: { id: user.id, username: user.username, email: user.email, firstName: user.firstName, lastName: user.lastName },
-            token
+        res.cookie('jwt', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Secure in production
+            sameSite: 'Strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
+        res.status(200).json({
+            user: user,
         });
     } catch (error) {
         console.error(error);
@@ -66,6 +77,96 @@ const register = async (req, res) => {
     }
 }
 
+const login = async (req, res) => {
+    const { username, password, } = req.body;
+
+    try {
+        // Check if user data already exists
+        const user = await User.findOne({
+            where: {
+                [Op.or]: [{ email: username }, { username: username }],
+            },
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Incorrect password or username / email.' });
+        }
+
+        const passCorrect = await bcrypt.compare(password, user.password);
+
+        if (!passCorrect) {
+            return res.status(400).json({ message: 'Incorrect password or username / email.' });
+        }
+
+        const token = jwt.sign(
+            { id: user.id, username: user.username },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.cookie('jwt', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Secure in production
+            sameSite: 'Strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
+        const userData = user.toJSON();
+        delete userData.id;
+        delete userData.password;
+
+        if (!user.admin) {
+            delete userData.admin
+        }
+
+        res.json({
+            success: true,
+            message: 'Login successful',
+            user: userData,
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'There was a problem with the server. Please try again.' });
+    }
+}
+
+const fetchUser = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id, {
+            attributes: { exclude: ['password', 'id'] },
+        })
+
+        if (!user) return res.status(401).json({ message: 'Unauthorized' });
+
+        const userData = user.toJSON();
+        if (!user.admin) {
+            delete userData.admin
+        }
+
+        res.json({ data: userData });
+    } catch (error) {
+        return res.status(401).json({ success: false, message: 'Invalid token' });
+    }
+}
+
+const logout = async (req, res) => {
+    try {
+
+        res.cookie('jwt', '', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: 0,
+        });
+
+        res.status(200).json({ message: 'Successfully logged out.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error occurred during logout.' });
+    }
+};
+
 module.exports = {
-    register,
+    register, login, logout, fetchUser
 };

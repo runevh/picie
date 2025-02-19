@@ -4,10 +4,12 @@ import {
     IconHome2,
     IconLogout,
     IconSettings,
+    IconShieldLock,
 } from '@tabler/icons-react';
 import { Stack, Tooltip, UnstyledButton } from '@mantine/core';
-import classes from './NavBar.module.css';
+import styles from './NavBar.module.scss';
 import { useState } from 'react';
+import { useAuth } from '../contexts/UserContext';
 
 interface NavbarLinkProps {
     icon: typeof IconHome2;
@@ -19,7 +21,7 @@ interface NavbarLinkProps {
 function NavbarLink({ icon: Icon, label, active, onClick }: NavbarLinkProps) {
     return (
         <Tooltip label={label} position="right" transitionProps={{ duration: 0 }}>
-            <UnstyledButton onClick={onClick} className={classes.link} data-active={active || undefined}>
+            <UnstyledButton onClick={onClick} className={styles.link} data-active={active || undefined}>
                 <Icon size={20} stroke={1.5} />
             </UnstyledButton>
         </Tooltip>
@@ -34,10 +36,15 @@ const mockdata = [
 ];
 
 function NavBar() {
+    const { logout, user } = useAuth();
 
     const [active, setActive] = useState(0);
 
-    const links = mockdata.map((link, index) => (
+    const linksData = user?.admin 
+        ? [...mockdata, { icon: IconShieldLock, label: 'Admin' }]  // Add 'Admin' link
+        : mockdata;
+
+    const links = linksData.map((link, index) => (
         <NavbarLink
             {...link}
             key={link.label}
@@ -47,15 +54,15 @@ function NavBar() {
     ));
 
     return (
-        <nav className={classes.navbar}>
-            <div className={classes.navbarMain}>
+        <nav className={styles.navbar}>
+            <div className={styles.navbarMain}>
                 <Stack justify="center" gap={0}>
                     {links}
                 </Stack>
             </div>
 
             <Stack justify="center" gap={0}>
-                <NavbarLink icon={IconLogout} label="Logout" />
+                <NavbarLink icon={IconLogout} label="Logout" onClick={() => logout()}/>
             </Stack>
         </nav>
     )
