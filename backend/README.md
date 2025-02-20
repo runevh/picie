@@ -5,6 +5,7 @@ Create a `.env` file with following variables:
 * `POSTGRES_USER`
 * `POSTGRES_PASSWORD`
 * `POSTGRES_DB`
+* `JWT_SECRET`
 
 #### Running development
 
