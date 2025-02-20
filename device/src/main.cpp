@@ -16,7 +16,7 @@
 
 Display display;
 
-void test_image() {
+void setup() {
   Serial.begin(115200);
 
   Serial.println("Initializing display...");
@@ -27,8 +27,11 @@ void test_image() {
 
   display.startImageTransfer();
 
-  display.sendImageData(gImage_5in65f, 0, 0, 192, 143);
-  display.sendImageData(gImage_5in65f, 0, 143, 192, 143);
+  display.sendImageData(gImage_5in65f, 0, 0, 600, 20);
+  for(int i = 0; i < 24; i++) {
+    display.sendImageData(gImage_5in65f, 0, 20, 600, 20);
+  }
+  display.sendImageData(gImage_5in65f, 0, 20, 600, 20);
   display.refresh();
 
   Serial.println("Done!");
@@ -36,7 +39,7 @@ void test_image() {
   display.sleep();
 }
 
-void setup()
+void setu() 
 {
   Serial.begin(115200);
   init_storage();

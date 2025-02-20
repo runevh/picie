@@ -5,6 +5,7 @@ import Devices from './components/Devices';
 import NavBar from './components/NavBar';
 import { Paper, Flex } from '@mantine/core';
 import Admin from './components/admin/Admin';
+import Images from './components/Images';
 
 function AppRouter() {
   const { isAuthenticated } = useAuth();
@@ -12,7 +13,7 @@ function AppRouter() {
     <Router>
       <Routes>
         {/* Public route */}
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/devices" /> : <Login />} />
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/photos" /> : <Login />} />
         
         {/* Protected routes */}
 
@@ -42,6 +43,23 @@ function AppRouter() {
                 <NavBar active={2}/>
                 <Paper p={30}>
                   <Devices />
+                </Paper>
+              </Flex>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        {/* Devices */}
+        <Route
+          path="/photos"
+          element={
+            isAuthenticated ? (
+              <Flex>
+                <NavBar active={2}/>
+                <Paper p={30}>
+                  <Images />
                 </Paper>
               </Flex>
             ) : (

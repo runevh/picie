@@ -23,5 +23,5 @@ bool connectToWifi(String ssid, String password)
 }
 
 bool connectToSocket(String url) {
-
+    return true;
 }

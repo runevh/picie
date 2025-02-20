@@ -137,7 +137,7 @@ void Display::sendImageData(const unsigned char *image, unsigned int x, unsigned
             }
             else
             {
-                sendData(0x11);
+                sendData(0x11); // Set the rest to white
             }
         }
     }

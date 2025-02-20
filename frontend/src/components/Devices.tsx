@@ -4,6 +4,7 @@ import { Image, Button, Card, Stack, Text, Title, Group, Badge, Indicator, Avata
 import styles from './Devices.module.scss';
 import { IconFilter, IconPlugConnected, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useDeviceContext } from "../contexts/DeviceContext";
+import { ImageProcessor } from "../services/ImageProcessor";
 
 const DeviceState = {
     ONLINE: { status: 'online', color: 'green' }, // props.online = true
@@ -107,6 +108,7 @@ function Devices() {
     const { getAllUserDevices } = useDeviceContext();
 
     useEffect(() => {
+        ImageProcessor.generateTestImage();
         getAllUserDevices().then((res) => {
             setDevices((_prev) => res.data.data);
         });

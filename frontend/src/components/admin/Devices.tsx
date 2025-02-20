@@ -1,5 +1,5 @@
-import { Button, Card, Group, Indicator, Text, Badge, Modal, Stack, Title, Avatar, TextInput, ActionIcon, Menu, Checkbox, SimpleGrid, Pagination } from "@mantine/core";
-import { IconArrowRight, IconFilter, IconPlus, IconSearch } from "@tabler/icons-react";
+import { Button, Card, Group, Text, Badge, Modal, Stack, Title, Avatar, TextInput, ActionIcon, Menu, Checkbox, SimpleGrid, Pagination } from "@mantine/core";
+import { IconFilter, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useDeviceContext } from "../../contexts/DeviceContext";
 
