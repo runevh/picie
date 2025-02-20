@@ -48,3 +48,8 @@ export default tseslint.config({
   },
 })
 ```
+## Running:
+
+Create a `.env` file with following variable:
+
+* `VITE_API_URL`
