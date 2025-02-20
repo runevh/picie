@@ -35,10 +35,14 @@ const mockdata = [
     { icon: IconSettings, label: 'Settings' },
 ];
 
-function NavBar() {
+interface NavBarProps {
+    active: number
+}
+
+function NavBar({active: number}: NavBarProps) {
     const { logout, user } = useAuth();
 
-    const [active, setActive] = useState(0);
+    const [active, setActive] = useState(number);
 
     const linksData = user?.admin 
         ? [...mockdata, { icon: IconShieldLock, label: 'Admin' }]  // Add 'Admin' link

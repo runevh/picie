@@ -4,12 +4,15 @@ import '@mantine/core/styles.css';
 import '@mantine/carousel/styles.css';
 import { AuthProvider } from './contexts/UserContext';
 import AppRouter from './router';
+import { DeviceProvider } from './contexts/DeviceContext';
 
 function App() {
   return (
     <MantineProvider defaultColorScheme='dark'>
       <AuthProvider>
-        <AppRouter></AppRouter>
+        <DeviceProvider>
+          <AppRouter></AppRouter>
+        </DeviceProvider>
       </AuthProvider>
     </MantineProvider>
   );

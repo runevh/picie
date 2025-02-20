@@ -15,6 +15,8 @@ const sequelize = process.env.NODE_ENV !== 'test' ? (new Sequelize(
         logging: false
     });
 
+sequelize.sync({ force: false })
+
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
