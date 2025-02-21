@@ -120,7 +120,7 @@ function AdminDevices() {
 
             <Stack>
                 <Group align="center">
-                    <Title fw={400}>Devices</Title>
+                    <Title fw={400}>All Devices</Title>
 
                     <Button radius="xl" onClick={openCreateDevice} variant="light" ml={15}>
                         <IconPlus />

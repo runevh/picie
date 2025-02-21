@@ -5,10 +5,11 @@ import {
     IconLogout,
     IconSettings,
     IconShieldLock,
+    IconProps,
 } from '@tabler/icons-react';
-import { Stack, Tooltip, UnstyledButton } from '@mantine/core';
+import { Flex, Stack, Tooltip, UnstyledButton } from '@mantine/core';
 import styles from './NavBar.module.scss';
-import { useState } from 'react';
+import { act, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/UserContext';
 
 interface NavbarLinkProps {
@@ -16,7 +17,7 @@ interface NavbarLinkProps {
     label: string;
     active?: boolean;
     onClick?: () => void;
-}  
+}
 
 function NavbarLink({ icon: Icon, label, active, onClick }: NavbarLinkProps) {
     return (
@@ -28,47 +29,53 @@ function NavbarLink({ icon: Icon, label, active, onClick }: NavbarLinkProps) {
     );
 }
 
-const mockdata = [
-    { icon: IconHome2, label: 'Home' },
-    { icon: IconLibraryPhoto, label: 'Photo Collages' },
-    { icon: IconPhotoScan, label: 'Devices' },
-    { icon: IconSettings, label: 'Settings' },
-];
+interface Page {
+    label: string,
+    url: string,
+    icon: typeof IconHome2,
+    page: any,
+  }
 
 interface NavBarProps {
-    active: number
+    pages: Page[],
+    activePage: string
 }
 
-function NavBar({active: number}: NavBarProps) {
-    const { logout, user } = useAuth();
+function NavBar({ activePage, pages }: NavBarProps) {
+    const { logout } = useAuth();
 
-    const [active, setActive] = useState(number);
+    const [activeURL, setActiveURL] = useState(activePage);
+    const [page, setPage] = useState();
 
-    const linksData = user?.admin 
-        ? [...mockdata, { icon: IconShieldLock, label: 'Admin' }]  // Add 'Admin' link
-        : mockdata;
-
-    const links = linksData.map((link, index) => (
-        <NavbarLink
-            {...link}
-            key={link.label}
-            active={index === active}
-            onClick={() => setActive(index)}
+    const links = pages.map((obj) => {
+        return <NavbarLink
+            icon={obj.icon}
+            label={obj.label}
+            key={obj.label}
+            active={activeURL === obj.url}
+            onClick={() => {
+                setActiveURL(obj.url);
+                setPage(obj.page);
+            }}
         />
-    ));
+
+    })
 
     return (
-        <nav className={styles.navbar}>
-            <div className={styles.navbarMain}>
-                <Stack justify="center" gap={0}>
-                    {links}
-                </Stack>
-            </div>
+        <Flex>
+            <nav className={styles.navbar}>
+                <div className={styles.navbarMain}>
+                    <Stack justify="center" gap={0}>
+                        {links}
+                    </Stack>
+                </div>
 
-            <Stack justify="center" gap={0}>
-                <NavbarLink icon={IconLogout} label="Logout" onClick={() => logout()}/>
-            </Stack>
-        </nav>
+                <Stack justify="center" gap={0}>
+                    <NavbarLink icon={IconLogout} label="Logout" onClick={() => logout()} />
+                </Stack>
+            </nav>
+            {page}
+        </Flex>
     )
 }
 

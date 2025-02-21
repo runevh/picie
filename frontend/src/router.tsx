@@ -3,73 +3,57 @@ import { useAuth } from './contexts/UserContext';
 import Login from './components/Login';
 import Devices from './components/Devices';
 import NavBar from './components/NavBar';
-import { Paper, Flex } from '@mantine/core';
 import Admin from './components/admin/Admin';
 import Images from './components/Images';
+import Home from './components/Home';
+import { IconHome2, IconLibraryPhoto, IconPhotoScan, IconShieldLock } from '@tabler/icons-react';
+
+interface Page {
+  label: string,
+  url: string,
+  icon: typeof IconHome2,
+  page: any,
+}
 
 function AppRouter() {
   const { isAuthenticated } = useAuth();
+
+  const pages: Page[] = [
+    {label: 'Home', url: '', icon: IconHome2, page: <Home></Home>},
+    {label: 'Photo Collages', url: 'photos', icon: IconLibraryPhoto, page: <Images></Images>},
+    {label: 'Devices', url: 'devices', icon: IconPhotoScan, page: <Devices></Devices>},
+  ];
+
+  if (isAuthenticated) {
+    pages.push({label: 'Admin', url: '/admin', icon: IconShieldLock, page: <Admin></Admin>});
+  }
+
   return (
     <Router>
       <Routes>
-        {/* Public route */}
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/photos" /> : <Login />} />
-        
-        {/* Protected routes */}
+        <Route path='/login' element={isAuthenticated ? <Navigate to="/" /> : <Login></Login>}/>
 
-        {/* Admin */}
-        <Route
-          path="/admin"
-          element={
-            isAuthenticated ? (
-              <Flex>
-                <NavBar active={4}/>
-                <Paper p={30}>
-                  <Admin />
-                </Paper>
-              </Flex>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
+        {pages.map((page, index) => (
+          <Route
+          key={index}
+          path={page.url}
+          element=
+          {!isAuthenticated ? 
+            <Navigate to="/login" /> : 
+            <NavBar activePage={page.url} pages={pages}></NavBar>}
         />
+        ))}
 
-        {/* Devices */}
         <Route
-          path="/devices"
-          element={
-            isAuthenticated ? (
-              <Flex>
-                <NavBar active={2}/>
-                <Paper p={30}>
-                  <Devices />
-                </Paper>
-              </Flex>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        {/* Devices */}
-        <Route
-          path="/photos"
-          element={
-            isAuthenticated ? (
-              <Flex>
-                <NavBar active={2}/>
-                <Paper p={30}>
-                  <Images />
-                </Paper>
-              </Flex>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
+          path='*' 
+          element=
+          {!isAuthenticated ? 
+            <Navigate to="/login" /> : 
+            <NavBar activePage='' pages={pages}></NavBar>}
         />
       </Routes>
     </Router>
-  );
+  )
 }
 
 export default AppRouter;
