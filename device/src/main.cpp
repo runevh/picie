@@ -27,11 +27,9 @@ void setup() {
 
   display.startImageTransfer();
 
-  display.sendImageData(gImage_5in65f, 0, 0, 600, 20);
-  for(int i = 0; i < 24; i++) {
-    display.sendImageData(gImage_5in65f, 0, 20, 600, 20);
+  for(int i = 0; i < 1; i++) {
+    display.sendImageData(gImage_5in65f, 0, 0, 600, 100);
   }
-  display.sendImageData(gImage_5in65f, 0, 20, 600, 20);
   display.refresh();
 
   Serial.println("Done!");

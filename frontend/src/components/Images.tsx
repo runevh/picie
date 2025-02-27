@@ -1,42 +1,74 @@
 import { ActionIcon, Button, Center, Checkbox, Chip, Container, Divider, Flex, Group, Menu, Modal, Paper, RangeSlider, ScrollArea, Select, SimpleGrid, Slider, Stack, Text, TextInput, Title } from "@mantine/core";
 import { IconFilter, IconPencil, IconPhoto, IconPlus, IconSearch, IconUpload, IconX } from "@tabler/icons-react";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export function DitheredImage({ imageSrc, zoom }: { imageSrc: any, zoom: number }) {
+export function ImageEditor(image: any) {
+    const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+    const [frameRotation, setFrameRotation] = useState(1);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [palette, setPalette] = useState<string[]>(["#03162b", "#F2E9D8", "#2E9455", "#2B528C", "#B34040", "#9A432", "#D95C32", "#EDD4A6"]); // Default 8 colors
+    const [imageScale, setImageScale] = useState(1);
 
-    useEffect(() => {
-        applyDithering();
-    }, []);
+    const handleImageDrag = (e: any, data: any) => {
+        setImagePosition({ x: data.x, y: data.y });
+    };
 
-    const applyDithering = () => {
-        console.log(imageSrc);
-        if (!imageSrc || !canvasRef.current) return;
+    const [value, setValue] = useState<string | null>('horizontal');
+    const setVertical = (event: React.MouseEvent<HTMLInputElement>) => {
+        setFrameRotation(1);
+    };
+
+    const setHorizontal = (event: React.MouseEvent<HTMLInputElement>) => {
+        setFrameRotation(0);
+    };
+
+    const addPhoto = () => {
+        const imageData = generateImageData();
+    }
+
+    const generateImageData = () => {
+        if (!image.image || !canvasRef.current) return;
 
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
         const img = new Image();
-        img.src = imageSrc;
-
+        img.src = image.image;
 
         img.onload = () => {
-            console.log("image loaded");
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+            // Set canvas to fixed size
+            canvas.width = frameRotation ? 600 : 488;
+            canvas.height = frameRotation ? 488 : 600;
+            ctx.clearRect(0, 0, 600, 488);
+
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw image at current position
+            ctx.drawImage(
+                img,
+                img.width / 2 - imagePosition.x * 2 - (imageScale - 1) * img.width / 2,
+                img.height / 2 - imagePosition.y * 2 - (imageScale - 1) * img.height / 2,
+                img.width * imageScale,
+                img.height * imageScale
+            );
+
+            canvas.toBlob((blob) => {
+                console.log(blob);
+            }, 'image/jpeg');
 
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let data = imageData.data;
 
+            // Dithering algorithm
             for (let y = 0; y < canvas.height; y++) {
                 for (let x = 0; x < canvas.width; x++) {
                     let index = (y * canvas.width + x) * 4;
                     let oldColor = [data[index], data[index + 1], data[index + 2]];
-                    let newColor = findClosestPaletteColor(oldColor, palette);
+                    let newColor = hexToRGB(palette[findClosestPaletteColor(oldColor, palette)]);
 
                     data[index] = newColor[0];
                     data[index + 1] = newColor[1];
@@ -55,28 +87,76 @@ export function DitheredImage({ imageSrc, zoom }: { imageSrc: any, zoom: number 
                 }
             }
 
-            // Update canvas
+            const normalizedPalette = palette.map((color) => color.toLowerCase());
+
             ctx.putImageData(imageData, 0, 0);
+
+            const byteArray = new Uint8Array(canvas.height * canvas.width / 2);
+
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x ++) {
+                    let pixelIndex = y * canvas.width + x;
+                    let dataIndex = pixelIndex * 4;
+                    let r = data[dataIndex],
+                        g = data[dataIndex + 1],
+                        b = data[dataIndex + 2];
+
+                    let hex = rgbToHex(r, g, b);
+                    let paletteIndex = normalizedPalette.indexOf(hex);
+
+                    const byteIndex = Math.floor(pixelIndex / 2);
+
+                    if((pixelIndex % 2) === 0) {
+                        byteArray[byteIndex] = paletteIndex << 4;
+                    } else {
+                        byteArray[byteIndex] |= paletteIndex;
+                    }
+
+                }
+            }
+
+            //console.log(dataUrl);
+            console.log(byteArrayToHexString(byteArray));
         };
     };
 
+    function byteArrayToHexString(byteArray: Uint8Array) {
+        let hexArray = Array.from(byteArray, byte => `0x${byte.toString(16).padStart(2, '0')}`);
+        return `{ ${hexArray.join(", ")} }`;
+    }
+
+
+    function rgbToHex(r: number, g: number, b: number) {
+        return (
+            "#" +
+            [r, g, b]
+                .map((c) => {
+                    const hex = c.toString(16);
+                    return hex.length === 1 ? "0" + hex : hex;
+                })
+                .join("")
+                .toLowerCase()
+        );
+    }
+
+
     const findClosestPaletteColor = (color: number[], palette: string[]) => {
-        let closest = palette[0];
+        let closest = 0;
         let closestDistance = Infinity;
 
-        palette.forEach((hex) => {
-            let [r, g, b] = hexToRGB(hex);
+        for (let i = 0; i < palette.length; i++) {
+            let [r, g, b] = hexToRGB(palette[i]);
             let distance = Math.sqrt(
                 (r - color[0]) ** 2 + (g - color[1]) ** 2 + (b - color[2]) ** 2
             );
 
             if (distance < closestDistance) {
                 closestDistance = distance;
-                closest = hex;
+                closest = i;
             }
-        });
+        }
 
-        return hexToRGB(closest);
+        return closest;
     };
 
     const hexToRGB = (hex: string): number[] => {
@@ -93,30 +173,17 @@ export function DitheredImage({ imageSrc, zoom }: { imageSrc: any, zoom: number 
         data[index + 2] += error[2] * factor;
     };
 
-    return (
-        <canvas ref={canvasRef} />
-    );
-}
-
-
-export function ImageEditor(image: any) {
-    const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
-    const [imageRotation, setImageRotation] = useState(0);
-    const [frameRotation, setFrameRotation] = useState(0);
-
-    const handleImageDrag = (e: any, data: any) => {
-        setImagePosition({ x: data.x, y: data.y });
-    };
-
-    const [value, setValue] = useState<string | null>('horizontal');
-    const handleChipClick = (event: React.MouseEvent<HTMLInputElement>) => {
-
-    };
-
     return <>
         <Modal radius={'lg'} size="auto" withCloseButton={false} opened onClose={() => { }} centered>
             <Center>
-                <ScrollArea h={224} w={300} bg={'white'}>
+                <ScrollArea
+                    defaultValue={50}
+                    h={frameRotation ? 244 : 300}
+                    w={frameRotation ? 300 : 244}
+                    bg={'white'}
+                    type="auto"
+                    style={{ cursor: 'grab' }}
+                    onScrollPositionChange={({ x, y }) => { setImagePosition({ x, y })}}>
                     <div
                         style={{
                             transform: `scale(${1 / 2})`,
@@ -124,7 +191,11 @@ export function ImageEditor(image: any) {
                             transformOrigin: "center",
                         }}
                     >
-                        <DitheredImage imageSrc={image.image} zoom={1} />
+                        <img src={image.image} style={{
+                            //width: '600px'
+                            //height: `${2 * imageScale}%`
+                            transform: `scale(${imageScale})`
+                        }} />
                     </div>
                 </ScrollArea>
             </Center>
@@ -135,6 +206,7 @@ export function ImageEditor(image: any) {
                     min={1}
                     defaultValue={100}
                     max={200}
+                    onChange={(e) => { setImageScale(e.valueOf() / 100) }}
                     marks={[
                         { value: 50, label: '50%' },
                         { value: 100, label: '100%' },
@@ -149,10 +221,10 @@ export function ImageEditor(image: any) {
                         <Group justify={'end'}>
                             <Chip.Group multiple={false} value={value} onChange={setValue}>
 
-                                <Chip size={'sm'} variant='light' value="horizontal" onClick={handleChipClick}>
+                                <Chip size={'sm'} variant='light' value="horizontal" onClick={setVertical}>
                                     Horizontal
                                 </Chip>
-                                <Chip size={'sm'} variant='light' value="vertical" onClick={handleChipClick}>
+                                <Chip size={'sm'} variant='light' value="vertical" onClick={setHorizontal}>
                                     Vertical
                                 </Chip>
 
@@ -162,10 +234,11 @@ export function ImageEditor(image: any) {
                 </Center>
             </Container>
             <Group justify={'center'}>
-                <Button color="blue">Add</Button>
+                <Button color="blue" onClick={() => generateImageData()}>Add</Button>
                 <Button color="red">Cancel</Button>
             </Group>
         </Modal>
+        <canvas ref={canvasRef} hidden />
     </>
 }
 
