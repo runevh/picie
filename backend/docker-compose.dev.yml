@@ -21,7 +21,8 @@ services:
       - PATH=$PATH:/app/node_modules/.bin
     depends_on:
       - db
-    command: mkdir -p /app/photos && npm run dev
+    command: sh -c "mkdir -p /app/photos && npm run dev"
+
   
 
   db:
@@ -50,5 +51,7 @@ services:
     depends_on:
       - db
     command: npm test
+    profiles:
+      - test
 volumes:
   pgdata:

@@ -26,7 +26,14 @@ export const getRequest = async (endpoint: string, params = {}): Promise<Respons
 
 export const postRequest = async (endpoint: string, data: any): Promise<ResponseBody> => {
     try {
-        const response = await api.post(`api/${endpoint}`, data);
+        const headers = data instanceof Blob || data instanceof File
+            ? { 'Content-Type': data.type || 'application/octet-stream' } // Use Blob/File's type
+            : { 'Content-Type': 'application/json' }; // Default to JSON
+
+        const response = await api.post(`api/${endpoint}`, data, {
+            headers: headers,
+        });
+
         return {success: true, data: response.data};
     } catch (error) {
         return handleError(error);

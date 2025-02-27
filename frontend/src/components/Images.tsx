@@ -2,13 +2,14 @@ import { ActionIcon, Button, Center, Checkbox, Chip, Container, Divider, Flex, G
 import { IconFilter, IconPencil, IconPhoto, IconPlus, IconSearch, IconUpload, IconX } from "@tabler/icons-react";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePhoto } from "../contexts/PhotoContext";
 
 export function ImageEditor(image: any) {
+    const { uploadPhoto } = usePhoto();
     const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
     const [frameRotation, setFrameRotation] = useState(1);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [palette, setPalette] = useState<string[]>(["#03162b", "#F2E9D8", "#2E9455", "#2B528C", "#B34040", "#9A432", "#D95C32", "#EDD4A6"]); // Default 8 colors
     const [imageScale, setImageScale] = useState(1);
 
     const handleImageDrag = (e: any, data: any) => {
@@ -24,153 +25,53 @@ export function ImageEditor(image: any) {
         setFrameRotation(0);
     };
 
-    const addPhoto = () => {
-        const imageData = generateImageData();
+    const addPhoto = async () => {
+        await generateImageData().then(data => {
+            uploadPhoto(data);
+        });
     }
 
-    const generateImageData = () => {
-        if (!image.image || !canvasRef.current) return;
-
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        const img = new Image();
-        img.src = image.image;
-
-        img.onload = () => {
-            // Set canvas to fixed size
-            canvas.width = frameRotation ? 600 : 488;
-            canvas.height = frameRotation ? 488 : 600;
-            ctx.clearRect(0, 0, 600, 488);
-
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw image at current position
-            ctx.drawImage(
-                img,
-                img.width / 2 - imagePosition.x * 2 - (imageScale - 1) * img.width / 2,
-                img.height / 2 - imagePosition.y * 2 - (imageScale - 1) * img.height / 2,
-                img.width * imageScale,
-                img.height * imageScale
-            );
-
-            canvas.toBlob((blob) => {
-                console.log(blob);
-            }, 'image/jpeg');
-
-            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            let data = imageData.data;
-
-            // Dithering algorithm
-            for (let y = 0; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x++) {
-                    let index = (y * canvas.width + x) * 4;
-                    let oldColor = [data[index], data[index + 1], data[index + 2]];
-                    let newColor = hexToRGB(palette[findClosestPaletteColor(oldColor, palette)]);
-
-                    data[index] = newColor[0];
-                    data[index + 1] = newColor[1];
-                    data[index + 2] = newColor[2];
-
-                    let error = [
-                        oldColor[0] - newColor[0],
-                        oldColor[1] - newColor[1],
-                        oldColor[2] - newColor[2]
-                    ];
-
-                    distributeError(data, x + 1, y, error, 7 / 16, canvas.width);
-                    distributeError(data, x - 1, y + 1, error, 3 / 16, canvas.width);
-                    distributeError(data, x, y + 1, error, 5 / 16, canvas.width);
-                    distributeError(data, x + 1, y + 1, error, 1 / 16, canvas.width);
-                }
-            }
-
-            const normalizedPalette = palette.map((color) => color.toLowerCase());
-
-            ctx.putImageData(imageData, 0, 0);
-
-            const byteArray = new Uint8Array(canvas.height * canvas.width / 2);
-
-            for (let y = 0; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x ++) {
-                    let pixelIndex = y * canvas.width + x;
-                    let dataIndex = pixelIndex * 4;
-                    let r = data[dataIndex],
-                        g = data[dataIndex + 1],
-                        b = data[dataIndex + 2];
-
-                    let hex = rgbToHex(r, g, b);
-                    let paletteIndex = normalizedPalette.indexOf(hex);
-
-                    const byteIndex = Math.floor(pixelIndex / 2);
-
-                    if((pixelIndex % 2) === 0) {
-                        byteArray[byteIndex] = paletteIndex << 4;
+    const generateImageData = async () => {
+        return new Promise((resolve, reject) => {
+            if (!image.image || !canvasRef.current) return reject("No image or canvas reference");
+    
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return reject("Could not get canvas context");
+    
+            const img = new Image();
+            img.src = image.image;
+    
+            img.onload = () => {
+                canvas.width = frameRotation ? 600 : 488;
+                canvas.height = frameRotation ? 488 : 600;
+                ctx.clearRect(0, 0, 600, 488);
+    
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+                ctx.drawImage(
+                    img,
+                    img.width / 2 - imagePosition.x * 2 - (imageScale - 1) * img.width / 2,
+                    img.height / 2 - imagePosition.y * 2 - (imageScale - 1) * img.height / 2,
+                    img.width * imageScale,
+                    img.height * imageScale
+                );
+    
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
                     } else {
-                        byteArray[byteIndex] |= paletteIndex;
+                        reject("Could not generate blob");
                     }
-
-                }
-            }
-
-            //console.log(dataUrl);
-            console.log(byteArrayToHexString(byteArray));
-        };
-    };
-
-    function byteArrayToHexString(byteArray: Uint8Array) {
-        let hexArray = Array.from(byteArray, byte => `0x${byte.toString(16).padStart(2, '0')}`);
-        return `{ ${hexArray.join(", ")} }`;
-    }
-
-
-    function rgbToHex(r: number, g: number, b: number) {
-        return (
-            "#" +
-            [r, g, b]
-                .map((c) => {
-                    const hex = c.toString(16);
-                    return hex.length === 1 ? "0" + hex : hex;
-                })
-                .join("")
-                .toLowerCase()
-        );
-    }
-
-
-    const findClosestPaletteColor = (color: number[], palette: string[]) => {
-        let closest = 0;
-        let closestDistance = Infinity;
-
-        for (let i = 0; i < palette.length; i++) {
-            let [r, g, b] = hexToRGB(palette[i]);
-            let distance = Math.sqrt(
-                (r - color[0]) ** 2 + (g - color[1]) ** 2 + (b - color[2]) ** 2
-            );
-
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closest = i;
-            }
-        }
-
-        return closest;
-    };
-
-    const hexToRGB = (hex: string): number[] => {
-        let bigint = parseInt(hex.slice(1), 16);
-        return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
-    };
-
-    const distributeError = (data: Uint8ClampedArray, x: number, y: number, error: number[], factor: number, width: number) => {
-        if (x < 0 || x >= width || y < 0) return;
-
-        let index = (y * width + x) * 4;
-        data[index] += error[0] * factor;
-        data[index + 1] += error[1] * factor;
-        data[index + 2] += error[2] * factor;
+                }, 'image/png');
+            };
+    
+            img.onerror = (error) => {
+                reject(error);
+            };
+        });
+    
     };
 
     return <>
@@ -234,7 +135,7 @@ export function ImageEditor(image: any) {
                 </Center>
             </Container>
             <Group justify={'center'}>
-                <Button color="blue" onClick={() => generateImageData()}>Add</Button>
+                <Button color="blue" onClick={() => addPhoto()}>Add</Button>
                 <Button color="red">Cancel</Button>
             </Group>
         </Modal>
