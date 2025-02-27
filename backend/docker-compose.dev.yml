@@ -10,6 +10,7 @@ services:
       - "7734:7734"
     volumes:
       - .:/app
+      - ./photos:/app/photos
     environment:
       - NODE_ENV=development
       - DB_HOST=db
@@ -20,7 +21,7 @@ services:
       - PATH=$PATH:/app/node_modules/.bin
     depends_on:
       - db
-    command: npm run dev
+    command: mkdir -p /app/photos && npm run dev
   
 
   db:
