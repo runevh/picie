@@ -37,7 +37,7 @@ router.get('/auth', auth, fetchUser);
 router.post('/logout', auth, logout);
 
 
-router.post('/photo/upload', savePhoto);
+router.post('/photo/upload', auth, savePhoto);
 
 router.post('/device/create', auth, admin, createDevice);
 router.get('/device/all/admin', auth, admin, getAllDevices);

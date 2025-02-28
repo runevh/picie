@@ -15,7 +15,7 @@ const sequelize = process.env.NODE_ENV !== 'test' ? (new Sequelize(
         logging: false
     });
 
-sequelize.sync({ force: false })
+//sequelize.sync({ force: false })
 
 const connectDB = async () => {
     try {
@@ -29,5 +29,7 @@ const connectDB = async () => {
         process.exit(1);
     }
 }
+
+sequelize.sync({ force: false });
 
 module.exports = { sequelize, connectDB }

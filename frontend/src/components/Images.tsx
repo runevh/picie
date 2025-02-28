@@ -1,10 +1,10 @@
 import { ActionIcon, Button, Center, Checkbox, Chip, Container, Divider, Flex, Group, Menu, Modal, Paper, RangeSlider, ScrollArea, Select, SimpleGrid, Slider, Stack, Text, TextInput, Title } from "@mantine/core";
 import { IconFilter, IconPencil, IconPhoto, IconPlus, IconSearch, IconUpload, IconX } from "@tabler/icons-react";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { usePhoto } from "../contexts/PhotoContext";
 
-export function ImageEditor(image: any) {
+export function ImageEditor({ image, close, addImage }: { image: string; close: () => void, addImage: (img: any) => void }) {
     const { uploadPhoto } = usePhoto();
     const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
     const [frameRotation, setFrameRotation] = useState(1);
@@ -27,29 +27,36 @@ export function ImageEditor(image: any) {
 
     const addPhoto = async () => {
         await generateImageData().then(data => {
-            uploadPhoto(data);
+            uploadPhoto(data).then(res => {
+                console.log("response", res);
+                const uint8Array = new Uint8Array(res.data.data);
+                const blob = new Blob([uint8Array], { type: 'image/png' });
+                const url = URL.createObjectURL(blob);
+                addImage(url);
+                close();
+            });
         });
     }
 
     const generateImageData = async () => {
         return new Promise((resolve, reject) => {
-            if (!image.image || !canvasRef.current) return reject("No image or canvas reference");
-    
+            if (!image || !canvasRef.current) return reject("No image or canvas reference");
+
             const canvas = canvasRef.current;
             const ctx = canvas.getContext("2d");
             if (!ctx) return reject("Could not get canvas context");
-    
+
             const img = new Image();
-            img.src = image.image;
-    
+            img.src = image;
+
             img.onload = () => {
                 canvas.width = frameRotation ? 600 : 488;
                 canvas.height = frameRotation ? 488 : 600;
                 ctx.clearRect(0, 0, 600, 488);
-    
+
                 ctx.fillStyle = "white";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
                 ctx.drawImage(
                     img,
                     img.width / 2 - imagePosition.x * 2 - (imageScale - 1) * img.width / 2,
@@ -57,7 +64,7 @@ export function ImageEditor(image: any) {
                     img.width * imageScale,
                     img.height * imageScale
                 );
-    
+
                 canvas.toBlob((blob) => {
                     if (blob) {
                         resolve(blob);
@@ -66,12 +73,12 @@ export function ImageEditor(image: any) {
                     }
                 }, 'image/png');
             };
-    
+
             img.onerror = (error) => {
                 reject(error);
             };
         });
-    
+
     };
 
     return <>
@@ -84,7 +91,7 @@ export function ImageEditor(image: any) {
                     bg={'white'}
                     type="auto"
                     style={{ cursor: 'grab' }}
-                    onScrollPositionChange={({ x, y }) => { setImagePosition({ x, y })}}>
+                    onScrollPositionChange={({ x, y }) => { setImagePosition({ x, y }) }}>
                     <div
                         style={{
                             transform: `scale(${1 / 2})`,
@@ -92,7 +99,7 @@ export function ImageEditor(image: any) {
                             transformOrigin: "center",
                         }}
                     >
-                        <img src={image.image} style={{
+                        <img src={image} style={{
                             //width: '600px'
                             //height: `${2 * imageScale}%`
                             transform: `scale(${imageScale})`
@@ -136,14 +143,14 @@ export function ImageEditor(image: any) {
             </Container>
             <Group justify={'center'}>
                 <Button color="blue" onClick={() => addPhoto()}>Add</Button>
-                <Button color="red">Cancel</Button>
+                <Button color="red" onClick={() => { close() }}>Cancel</Button>
             </Group>
         </Modal>
         <canvas ref={canvasRef} hidden />
     </>
 }
 
-export function ImageUploader() {
+export function ImageUploader({ close, addImage }: { close: () => void, addImage: (img: any) => void }) {
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
     const handleImageUpload = (files: File[]) => {
@@ -160,7 +167,7 @@ export function ImageUploader() {
 
     return <>
         {!uploadedImage ? (
-            <Modal withCloseButton={false} opened onClose={() => { }} centered size={'lg'}>
+            <Modal withCloseButton={false} opened onClose={close} centered size={'lg'}>
                 <Title size={'xl'} fw={300}>Add Photo</Title>
                 <Dropzone
                     multiple={false}
@@ -192,7 +199,7 @@ export function ImageUploader() {
                 </Dropzone>
             </Modal>
         ) : (
-            <ImageEditor image={uploadedImage} />
+            <ImageEditor addImage={addImage} close={() => close()} image={uploadedImage} />
         )}
     </>
 }
@@ -200,11 +207,18 @@ export function ImageUploader() {
 function Images() {
     const [openCreateCollage, setOpenCreateCollage] = useState(false);
     const [openAddImage, setOpenAddImage] = useState(false);
+    const [images, setImages] = useState<string[]>([]);
+
+    const addImage = (image: any) => {
+        setImages((p) => {
+            return [...p, image];
+        })
+    }
 
     return (
         <>
-            {openAddImage && <ImageUploader />}
-            <Modal opened={openCreateCollage} onClose={() => setOpenCreateCollage(false)} centered title="Create new photo collage">
+            {openAddImage && <ImageUploader addImage={addImage} close={() => { setOpenAddImage(false) }} />}
+            <Modal withCloseButton={false} closeOnEscape={false} closeOnClickOutside={false} opened={openCreateCollage} onClose={() => setOpenCreateCollage(false)} centered title="Create new photo collage">
 
                 <Group>
                     <TextInput placeholder="Collage name" mb="md" radius={'xl'} />
@@ -227,19 +241,49 @@ function Images() {
                     </Group>
                 </Group>
                 <Paper withBorder p={6} radius={14}>
-                    <ScrollArea h={300}>
+                    <ScrollArea h={250}>
                         <SimpleGrid cols={3} spacing="sm">
                             {/* Replace with actual images */}
-                            {[...Array(9)].map((_, index) => (
-                                <div key={index} style={{ height: 150, width: 122, backgroundColor: '#ddd', borderRadius: 8 }}></div>
-                            ))}
+                            {/*[...Array(9)].map((_, index) => (
+                                <div key={index} style={{ height: 122, width: 122, backgroundColor: '', borderRadius: 8 }}></div>
+                            ))*/}
+                            {images.map((img, index) => {
+                                return (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            height: 122,
+                                            width: 122,
+                                            borderRadius: 8,
+                                            overflow: "hidden", // Ensures the image doesn’t overflow
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            backgroundColor: "#ffffff", // Optional: gives a background to see the box clearly
+                                        }}
+                                    >
+                                        <img
+                                            src={img}
+                                            style={{
+                                                maxWidth: "100%",
+                                                maxHeight: "100%",
+                                                objectFit: "cover", // Ensures the image scales properly within the container
+                                                display: "block",
+                                            }}
+                                            alt={`image-${index}`}
+                                        />
+                                    </div>
+                                );
+                            })}
+
                         </SimpleGrid>
                     </ScrollArea>
                 </Paper>
 
                 <Divider my="md" />
+                <Button variant="default">Cancel</Button>
+                <Button color="blue">Save</Button>
 
-                <Button fullWidth>Save</Button>
             </Modal>
             <Stack>
                 <Group align="center">
@@ -294,12 +338,6 @@ function Images() {
                     />
 
                 </Group>
-                {/*
-                    <Text size="lg" c="gray.7">There are no devices yet linked to your account.</Text>
-                    <Button w={200}rightSection={<IconPlus size={14} />}>Add new Device</Button>
-                */}
-                {
-                }
             </Stack>
         </>
     )

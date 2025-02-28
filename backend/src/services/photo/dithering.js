@@ -1,6 +1,4 @@
-const { createCanvas, loadImage } = require("canvas");
 const sharp = require("sharp");
-
 
 const palette = ["#03162b", "#F2E9D8", "#2E9455", "#2B528C", "#B34040", "#9AA432", "#D95C32", "#EDD4A6"];
 const hexToRGB = (hex) => hex.match(/\w\w/g).map((x) => parseInt(x, 16));
@@ -52,20 +50,6 @@ const dither = async (buffer) => {
         }
     }
 
-
-    const ditheredBuffer = await sharp(pixels, {
-        raw: {
-            width,
-            height,
-            channels,
-        },
-    })
-        .png()
-        .toBuffer();
-
-    const filePath = "./photos/dithered_image.png";
-    saveImage(ditheredBuffer, filePath);
-
     const normalizedPalette = palette.map((color) => color.toLowerCase());
 
     const byteArray = new Uint8Array(height * width / 2);
@@ -92,19 +76,10 @@ const dither = async (buffer) => {
         }
     }
 
+    
+
     return byteArray;
 }
-
-const fs = require("fs");
-
-const saveImage = (buffer, filePath) => {
-    try {
-        fs.writeFileSync(filePath, buffer);
-        console.log(`Image saved successfully at ${filePath}`);
-    } catch (error) {
-        console.error("Error saving image:", error);
-    }
-};
 
 function byteArrayToHexString(byteArray) {
     let hexArray = Array.from(byteArray, byte => `0x${byte.toString(16).padStart(2, '0')}`);
