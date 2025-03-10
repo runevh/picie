@@ -7,7 +7,7 @@ import {
     IconShieldLock,
     IconProps,
 } from '@tabler/icons-react';
-import { Flex, Stack, Tooltip, UnstyledButton } from '@mantine/core';
+import { Container, Flex, Group, Stack, Tooltip, UnstyledButton } from '@mantine/core';
 import styles from './NavBar.module.scss';
 import { act, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/UserContext';
@@ -34,7 +34,7 @@ interface Page {
     url: string,
     icon: typeof IconHome2,
     page: any,
-  }
+}
 
 interface NavBarProps {
     pages: Page[],
@@ -62,8 +62,14 @@ function NavBar({ activePage, pages }: NavBarProps) {
     })
 
     return (
-        <Flex>
-            <nav className={styles.navbar}>
+        <Flex >
+            <nav className={styles.navbar} style={{
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                overflowY: 'hidden'
+            }}>
                 <div className={styles.navbarMain}>
                     <Stack justify="center" gap={0}>
                         {links}
@@ -74,7 +80,11 @@ function NavBar({ activePage, pages }: NavBarProps) {
                     <NavbarLink icon={IconLogout} label="Logout" onClick={() => logout()} />
                 </Stack>
             </nav>
-            {page}
+            <Container style={{
+                marginLeft: '75px',
+                overflowY: 'auto',
+            }}
+                m={10}>{page}</Container>
         </Flex>
     )
 }

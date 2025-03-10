@@ -4,9 +4,9 @@ import Login from './components/Login';
 import Devices from './components/Devices';
 import NavBar from './components/NavBar';
 import Admin from './components/admin/Admin';
-import Images from './components/Images';
 import Home from './components/Home';
 import { IconHome2, IconLibraryPhoto, IconPhotoScan, IconShieldLock } from '@tabler/icons-react';
+import Photos from './components/photos/Photos';
 
 interface Page {
   label: string,
@@ -20,7 +20,7 @@ function AppRouter() {
 
   const pages: Page[] = [
     {label: 'Home', url: '', icon: IconHome2, page: <Home></Home>},
-    {label: 'Photo Collages', url: 'photos', icon: IconLibraryPhoto, page: <Images></Images>},
+    {label: 'Photo Collages', url: 'photos', icon: IconLibraryPhoto, page: <Photos></Photos>},
     {label: 'Devices', url: 'devices', icon: IconPhotoScan, page: <Devices></Devices>},
   ];
 

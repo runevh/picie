@@ -98,8 +98,6 @@ export const DeviceCard: React.FC<DeviceProps> = (props) => {
 }
 
 function Devices() {
-
-    //const [devices, setDevices] = useState([]);
     const [addProgress, setAddProgress] = useState(0);
     const [showAddDevice, setShowAddDevice] = useState(false);
     const [deviceKey, setDeviceKey] = useState('');

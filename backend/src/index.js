@@ -4,7 +4,7 @@ const { connectDB } = require('./config/db');
 const { register, login, fetchUser, logout } = require('../src/controller/userController');
 const { createDevice, getAllDevices, startClaimDevice, getUserDevices } = require('../src/controller/deviceController')
 const { auth, admin } = require('../src/middleware/auth');
-const { savePhoto } = require('./controller/photoController');
+const { savePhoto, getPhoto, createPhotoCollage, getPhotoCollages, savePhotoCollage } = require('./controller/photoController');
 const cors = require('cors');
 const cookieParser = require("cookie-parser");
 
@@ -22,22 +22,25 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use('/api/photo/upload', express.raw({
+/*app.use('/api/photo/upload', express.raw({
   type: 'image/*',
   limit: '10mb',
-}));
+}));*/
+app.use('/api/photo/upload', express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(bodyParser.json());
 app.use('/api', router);
-
 
 router.post('/register', register);
 router.post('/login', login);
 router.get('/auth', auth, fetchUser);
 router.post('/logout', auth, logout);
 
-
 router.post('/photo/upload', auth, savePhoto);
+router.post('/photo/collage/create', auth, createPhotoCollage);
+router.post('/photo/collage/save', auth, savePhotoCollage);
+router.get('/photo/collage/get', auth, getPhotoCollages);
+router.get('/photo/get/:id.png', auth, getPhoto);
 
 router.post('/device/create', auth, admin, createDevice);
 router.get('/device/all/admin', auth, admin, getAllDevices);

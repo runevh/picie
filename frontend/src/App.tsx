@@ -9,7 +9,7 @@ import { PhotoProvider } from './contexts/PhotoContext';
 
 function App() {
   return (
-    <MantineProvider defaultColorScheme='dark'>
+    <MantineProvider defaultColorScheme='light'>
       <AuthProvider>
         <DeviceProvider>
           <PhotoProvider>
