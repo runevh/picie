@@ -81,7 +81,8 @@ function NavBar({ activePage, pages }: NavBarProps) {
                 </Stack>
             </nav>
             <Container style={{
-                marginLeft: '75px',
+                position: 'absolute',
+                left: '75px',
                 overflowY: 'auto',
             }}
                 m={10}>{page}</Container>
