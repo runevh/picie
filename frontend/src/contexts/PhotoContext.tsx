@@ -34,54 +34,54 @@ interface PhotoContextType {
 const PhotoContext = createContext<PhotoContextType | undefined>(undefined);
 
 export function PhotoProvider({ children }: { children: ReactNode }) {
-    const [collages, setCollages] = useState<Collage[]>([]);
+  const [collages, setCollages] = useState<Collage[]>([]);
 
-    useEffect(() => {
-        getCollages();
-    }, []);
+  useEffect(() => {
+    getCollages();
+  }, []);
 
-    const uploadPhoto = async (data: PhotoReqData): Promise<ResponseBody> => {
-        return await photoService.uploadPhoto(data);
+  const uploadPhoto = async (data: PhotoReqData): Promise<ResponseBody> => {
+    return await photoService.uploadPhoto(data);
+  }
+
+  const saveCollage = async (collage: Collage): Promise<ResponseBody> => {
+    const data: CollageReqData = {
+      id: collage.id,
+      name: collage.name,
+      photos: collage.photos.map((p) => p.id)
+    };
+
+    const res = await photoService.saveCollage(data);
+
+    if (res.success) {
+      setCollages((prevCollages) =>
+        prevCollages.map((el) => (el.id === collage.id ? collage : el))
+      );
     }
 
-    const saveCollage = async (collage: Collage): Promise<ResponseBody> => {
-        const data: CollageReqData = {
-            id: collage.id,
-            name: collage.name,
-            photos: collage.photos.map((p) => p.id)
-        };
+    return res;
+  }
 
-        const res = await photoService.saveCollage(data);
-
-        if (res.success) {
-            setCollages((prevCollages) =>
-                prevCollages.map((el) => (el.id === collage.id ? collage : el))
-            );
-        }
-
-        return res;
+  const createCollage = async (): Promise<ResponseBody> => {
+    const res =  await photoService.createCollage();
+    if (res.success) {
+      const collage: Collage = {id: res.data.id, name: res.data.name, photos: []};
+      setCollages(p => [...p, collage]);
     }
+    return res;
+  }
 
-    const createCollage = async (): Promise<ResponseBody> => {
-        const res =  await photoService.createCollage();
-        if (res.success) {
-            const collage: Collage = {id: res.data.id, name: res.data.name, photos: []};
-            setCollages(p => [...p, collage]);
-        }
-        return res;
-    }
+  const getCollages = async (): Promise<ResponseBody> => {
+    const res = await photoService.getCollages();
+    setCollages(_p => res.data);
+    return res;
+  }
 
-    const getCollages = async (): Promise<ResponseBody> => {
-        const res = await photoService.getCollages();
-        setCollages(_p => res.data);
-        return res;
-    }
-
-    return (
-        <PhotoContext.Provider value={{ uploadPhoto, saveCollage, collages, createCollage }}>
-            {children}
-        </PhotoContext.Provider>
-    );
+  return (
+    <PhotoContext.Provider value={{ uploadPhoto, saveCollage, collages, createCollage }}>
+      {children}
+    </PhotoContext.Provider>
+  );
 }
 
 export function usePhoto() {

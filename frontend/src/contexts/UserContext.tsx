@@ -16,12 +16,14 @@ interface UserContextType {
   login: (username: string, password: string) => Promise<ResponseBody>;
   register: (username: string, email: string, password: string, firstName: string, lastName: string) => Promise<ResponseBody>;
   logout: () => void;
+  loading: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -32,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(res.data.data);
         }
       } catch (e) {
-
+        console.error(e);
+      } finally {
+        setLoading(false);
       }
     }
     fetchUser();
@@ -57,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UserContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout }}>
+    <UserContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout, loading }}>
       {children}
     </UserContext.Provider>
   );
