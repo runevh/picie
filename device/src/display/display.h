@@ -20,6 +20,7 @@
 
 #define DISPLAY_WIDTH 600
 #define DISPLAY_HEIGHT 488
+#define PIXELS_COUNT 146400
 
 class Display {
 public:
@@ -35,9 +36,10 @@ public:
     void sendImageData(const unsigned char *image, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
     void refresh();
     void sleep();
-
 private:
     void spiTransfer(unsigned char data);
 };
+
+extern Display display;
 
 #endif // DISPLAY_H

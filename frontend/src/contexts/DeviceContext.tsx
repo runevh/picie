@@ -14,7 +14,7 @@ interface DeviceContextType {
     createDevice: () => Promise<ResponseBody>;
     getAllDevices: () => Promise<ResponseBody>;
     getAllUserDevices: () => Promise<ResponseBody>;
-    startClaimDevice: (id: string) => Promise<ResponseBody>;
+    startPairing: (id: string) => Promise<ResponseBody>;
     endClaimDevice: (pin: number) => Promise<ResponseBody>;
 }
 
@@ -35,8 +35,8 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         return await deviceService.getAllUserDevices();
     }
 
-    const startClaimDevice = async (id: string): Promise<ResponseBody> => {
-        return await deviceService.startClaimDevice(id);
+    const startPairing = async (id: string): Promise<ResponseBody> => {
+        return await deviceService.startPairing(id);
     }
 
     const endClaimDevice = async (pin: number): Promise<ResponseBody> => {
@@ -44,7 +44,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <DeviceContext.Provider value={{ devices, createDevice, getAllDevices, getAllUserDevices, startClaimDevice, endClaimDevice }}>
+        <DeviceContext.Provider value={{ devices, createDevice, getAllDevices, getAllUserDevices, startPairing, endClaimDevice }}>
             {children}
         </DeviceContext.Provider>
     );

@@ -13,8 +13,8 @@ export const deviceService = {
     return await getRequest("device/all", {});
   },
 
-  startClaimDevice: async (id: string) => {
-    return await postRequest("device/claim/start", {id});
+  startPairing: async (id: string) => {
+    return await postRequest("device/pairing/start", {id});
   },
 
   endClaimDevice: async (pin: number) => {

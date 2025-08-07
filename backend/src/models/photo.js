@@ -7,11 +7,11 @@ const User = require('./user');
 // +-------------+----------+--------+
 // | id          | lastSeen | Name   |
 // +-------------+----------+--------+
-const Collage = sequelize.define('Collage', {
+const Album = sequelize.define('Album', {
     id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         primaryKey: true,
-        autoIncrement: true,
+        defaultValue: DataTypes.UUIDV4,
     },
     name: {
         type: DataTypes.STRING,
@@ -30,19 +30,19 @@ const Collage = sequelize.define('Collage', {
 
 const Photo = sequelize.define('Photo', {
     id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         primaryKey: true,
-        autoIncrement: true,
+        defaultValue: DataTypes.UUIDV4,
     },
     owner: {
         type: DataTypes.INTEGER,
         allowNull: false
     },
-    collageId: {
-        type: DataTypes.INTEGER,
+    albumId: {
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
-            model: Collage,
+            model: Album,
             key: 'id'
         }
     }
@@ -51,7 +51,7 @@ const Photo = sequelize.define('Photo', {
 User.hasMany(Photo, { foreignKey: 'owner', onDelete: 'CASCADE' }); //Todo, delete files when entry is also deleted
 Photo.belongsTo(User, { foreignKey: 'owner' });
 
-Collage.hasMany(Photo, { foreignKey: 'collageId' });
-Photo.belongsTo(Collage, { foreignKey: 'collageId' });
+Album.hasMany(Photo, { foreignKey: 'albumId' });
+Photo.belongsTo(Album, { foreignKey: 'albumId' });
 
-module.exports = { Photo, Collage };
+module.exports = { Photo, Album };

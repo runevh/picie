@@ -1,23 +1,26 @@
 const {dither } = require('../services/photo/dithering')
 const fs = require("fs");
-const { Photo, Collage } = require('../models/photo');
+const { Photo, Collage, Album } = require('../models/photo');
 const generateName = require('sillyname');
+const path = require('path');
 
 const savePhoto = async (req, res) => {
     try {
-        
         const user = req.user.id;
-        const collageId = req.body.id;
+        const albumId = req.body.albumId;
 
-        const base64WithoutPrefix = req.body.data.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64WithoutPrefix, 'base64');
+        //TODO: Check wether person can access album
 
         const photo = await Photo.create({
             owner: user,
-            collageId: collageId,
+            albumId: albumId,
         });
+
+        const base64WithoutPrefix = req.body.data.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64WithoutPrefix, 'base64');
     
-        const filePath = `./photos/${photo.id}`;
+        const filePath = path.join(__dirname, '..', '..', 'photos', `${photo.id}`);
+        console.log(filePath);
         fs.writeFileSync(filePath + ".png", buffer);
 
         const bytes = await dither(buffer);
@@ -28,22 +31,22 @@ const savePhoto = async (req, res) => {
             image: buffer.toString('base64')
         });
     } catch (e) {
+        console.warn(e);
         res.status(500).send("Error processing image");
     }
 }
 
-const createPhotoCollage = async (req, res) => {
+const createAlbum = async (req, res) => {
     try {
         const user = req.user.id;
         const name = generateName();
-        const collage = await Collage.create({
+        const album = await Album.create({
             owner: user,
             name: name,
         })
-        // Check if req.collage.id exists and check if the user is the owner
-        // If not exist, create new 
 
-        res.status(200).send({name: name, id: collage.id});
+        // Check if req.collage.id exists and check if the user is the owner
+        res.status(200).send({name: name, id: album.id, photos: []});
     } catch (e) {
         console.log(e);
         res.status(500).send("Error processing image");
@@ -78,35 +81,33 @@ const savePhotoCollage = async (req, res) => {
     }
 }
 
-const getPhotoCollages = async (req, res) => {
+const getAlbums = async (req, res) => {
     try {
         const user = req.user.id;
 
-        console.log(user);
-
-        const collages = await Collage.findAll({
+        const albums = await Album.findAll({
             where: {
                 owner: user
             }
         });
 
-        const collagesWithPhotos = await Promise.all(
-            collages.map(async (collage) => {
+        const albumsWithPhotos = await Promise.all(
+            albums.map(async (album) => {
                 const photos = await Photo.findAll({
                     where: {
-                        collageId: collage.id
+                        albumId: album.id
                     },
                     attributes: ['id']
                 });
 
                 return {
-                    ...collage.toJSON(),
+                    ...album.toJSON(),
                     photos: photos
                 };
             })
         );
 
-        res.status(200).json(collagesWithPhotos);
+        res.status(200).json(albumsWithPhotos);
     } catch (e) {
         console.log(e);
         res.status(500).send("Error");
@@ -150,4 +151,4 @@ const getPhoto = async (req, res) => {
     }
 }
 
-module.exports = { savePhoto, getPhoto, createPhotoCollage, savePhotoCollage, getPhotoCollages }
+module.exports = { savePhoto, getPhoto, createAlbum, savePhotoCollage, getAlbums }

@@ -1,8 +1,12 @@
 export type Album = {
-    id: string;
-    title: string;
-    photos: string[];
-    collaborators: Collaborator[];
+  id: string;
+  name: string;
+  photos: Photo[];
+  collaborators: Collaborator[];
+}
+
+export type Photo = {
+  id: string;
 }
 
 export type Collaborator = {

@@ -3,6 +3,9 @@ import { createContext, useCallback, useContext, useState } from "react";
 import { Album, Collaborator } from "../../types/Photos";
 import { IconTrash } from "@tabler/icons-react";
 import { useIsMobile } from "../../util/LayoutUtil";
+import {  usePhotoUploader } from "./PhotoUploader";
+import { getUrlFromPhoto } from "../../util/UrlUtil";
+import { usePhoto } from "../../contexts/PhotoContext";
 
 type AlbumEditorProps = {
   opened: boolean;
@@ -12,10 +15,11 @@ type AlbumEditorProps = {
 };
 
 export function AlbumEditor({ opened, onClose, album, onSave }: AlbumEditorProps) {
-  const [title, setTitle] = useState(album.title);
+  const [name, setName] = useState(album.name);
   const [collaborators, setCollaborators] = useState<Collaborator[]>(album.collaborators || []);
   const [inviteEmail, setInviteEmail] = useState("");
   const [scale, setScale] = useState(1);
+  const { openUploader } = usePhotoUploader();
 
   const isMobile = useIsMobile();
 
@@ -24,9 +28,15 @@ export function AlbumEditor({ opened, onClose, album, onSave }: AlbumEditorProps
   };
 
   const handleSave = () => {
-    onSave({ id: album.id, title, photos: album.photos, collaborators });
+    onSave({ id: album.id, name: name, photos: album.photos, collaborators });
     onClose();
   };
+
+
+  const handleUploadPicture = () => {
+    openUploader(album, () => {});
+  };
+
 
   const Content = (
     <>
@@ -37,8 +47,8 @@ export function AlbumEditor({ opened, onClose, album, onSave }: AlbumEditorProps
             <Box>
               <TextInput
                 label="Album Name"
-                value={title}
-                onChange={(e) => setTitle(e.currentTarget.value)}
+                value={name}
+                onChange={(e) => setName(e.currentTarget.value)}
                 size="sm"
                 radius="md"
               />
@@ -56,13 +66,13 @@ export function AlbumEditor({ opened, onClose, album, onSave }: AlbumEditorProps
                   radius="md"
                   style={{ flex: 1 }}
                 />
-                <Button size="sm" mt={25} onClick={() => {/* invite logic here */}}>
-                Invite
+                <Button size="sm" mt={25} onClick={() => {/* invite logic here */ }}>
+                  Invite
                 </Button>
               </Group>
 
               {/* Collaborators list */}
-              <ScrollArea h={150} scrollbarSize={6} offsetScrollbars>
+              <ScrollArea mah={150} scrollbarSize={6} offsetScrollbars>
                 {collaborators.map((c, i) => (
                   <Flex key={c.email} py={6} align="center">
                     <Group gap="sm" style={{ flex: 1 }}>
@@ -117,7 +127,7 @@ export function AlbumEditor({ opened, onClose, album, onSave }: AlbumEditorProps
                 album.photos.map((photo, i) => (
                   <img
                     key={i}
-                    src={photo}
+                    src={getUrlFromPhoto(photo)}
                     alt={`Photo ${i + 1}`}
                     style={{
                       width: 120 * scale,
@@ -147,7 +157,7 @@ export function AlbumEditor({ opened, onClose, album, onSave }: AlbumEditorProps
                   cursor: "pointer",
                 }}
               >
-                <Text c="dimmed">+ Add Photo</Text>
+                <Text c="dimmed" onClick={handleUploadPicture}>+ Add Photo</Text>
               </Box>
             </Group>
           </Stack>
@@ -171,6 +181,9 @@ export function AlbumEditor({ opened, onClose, album, onSave }: AlbumEditorProps
       >
         <Button variant="default" onClick={onClose}>
           Cancel
+        </Button>
+        <Button variant="light" color="red" onClick={onClose}>
+          Delete
         </Button>
         <Button onClick={handleSave}>Save Changes</Button>
       </Box>
@@ -222,12 +235,13 @@ export function useAlbumEditor() {
 }
 
 export function AlbumEditorProvider({ children }: { children: React.ReactNode }) {
-  const [album, setAlbum] = useState<Album | null>(null);
+  const { albums } = usePhoto();
+  const [albumId, setAlbumId] = useState<string | null>(null);
   const [opened, setOpened] = useState(false);
   const [onSave, setOnSave] = useState<((a: Album) => void) | undefined>();
 
   const openEditor = useCallback((album: Album, onSaveCallback?: (a: Album) => void) => {
-    setAlbum(album);
+    setAlbumId(album.id);
     setOnSave(() => onSaveCallback);
     setOpened(true);
   }, []);
@@ -236,6 +250,8 @@ export function AlbumEditorProvider({ children }: { children: React.ReactNode })
     onSave?.(updated);
     setOpened(false);
   };
+
+  const album = albums.find(a => a.id === albumId) ?? null;
 
   return (
     <AlbumEditorContext.Provider value={{ openEditor }}>

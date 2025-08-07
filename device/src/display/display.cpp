@@ -1,12 +1,15 @@
 #include "display.h"
 #include <SPI.h>
 #include <pgmspace.h>
+#include <user_interface.h>
 
 // https://github.com/waveshareteam/e-Paper/tree/master/Arduino/epd5in65f
 
 Display::Display()
 {
 }
+
+Display display;
 
 void Display::init()
 {

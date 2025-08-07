@@ -1,6 +1,6 @@
-#include <ap.h>
+#include <network/ap.h>
 #include <page_html.h>
-#include "storage.h"
+#include <storage/storage.h>
 
 const char *ssid = "live-picture";
 const char *password = "";

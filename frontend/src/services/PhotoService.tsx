@@ -1,4 +1,4 @@
-import { CollageReqData, PhotoReqData } from "../contexts/PhotoContext";
+import { AlbumReqData, PhotoReqData } from "../contexts/PhotoContext";
 import { getRequest, postRequest } from "./api"; // Adjust path as needed
 
 export const photoService = {
@@ -6,15 +6,15 @@ export const photoService = {
     return await postRequest("photo/upload", data);
   },
 
-  saveCollage: async (collage: CollageReqData) => {
-    return await postRequest("photo/collage/save", collage);
+  saveAlbum: async (collage: AlbumReqData) => {
+    return await postRequest("photo/albums/save", collage);
   },
 
-  createCollage: async () => {
-    return await postRequest("photo/collage/create", {});
+  createAlbum: async () => {
+    return await postRequest("photo/albums/create", {});
   },
 
-  getCollages: async () => {
-    return await getRequest("photo/collage/get", {});
+  getAlbums: async () => {
+    return await getRequest("photo/albums/get", {});
   }
 };

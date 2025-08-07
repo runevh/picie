@@ -7,7 +7,24 @@ const UserDeviceRole = sequelize.define('UserDeviceRole', {
     role: {
         type: DataTypes.ENUM('OWNER', 'EDIT', 'READ'),
         allowNull: false,
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: User,
+            key: 'id',
+        }
+    },
+    deviceId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: Device,
+            key: 'uuid',
+        }
     }
+
 }, {
     indexes: [
         {

@@ -1,16 +1,33 @@
 const Device = require('../models/device');
 const User = require('../models/user');
 const { UserDeviceRole } = require('../models/userDeviceRole');
+const crypto = require('crypto');
+const tcpServer = require('../services/tcpServer');
+const { dither } = require('../services/photo/dithering');
+const generateNumberImage = require('../services/photo/pinImageGenerator');
+const { sendBuffer } = require('../services/photo/imageSender');
 
 const createDevice = async (req, res) => {
+    try {
+        const rawSecret = crypto.randomBytes(31).toString('hex'); //62 hex characters
 
-    const device = await Device.create({ id: 0 });
+        const device = await Device.create({
+            secret: rawSecret,
+        });
 
-    res.json({
-        success: true,
-        data: device
-    });
-}
+        res.json({
+            success: true,
+            data: {
+                uuid: device.uuid,
+                publicId: device.publicId,
+                secret: rawSecret,
+            },
+        });
+    } catch (err) {
+        console.error('Error creating device:', err);
+        res.status(500).json({ success: false, error: 'Failed to create device' });
+    }
+};
 
 const getAllDevices = async (req, res) => {
     try {
@@ -51,17 +68,17 @@ const getAllDevices = async (req, res) => {
 
 const getUserDevices = async (req, res) => {
     try {
-        const {id: userId} = req.user;
+        const { id: userId } = req.user;
 
         console.log(userId);
-        
+
         const devices = await UserDeviceRole.findAll({
             where: {
                 userId: userId,
             },
             include: [
                 {
-                    model: Device,  
+                    model: Device,
                     attributes: ['id', 'lastSeen', 'name'],
                 }
             ],
@@ -86,42 +103,61 @@ const getUserDevices = async (req, res) => {
     }
 };
 
+const pairingDevices = new Map();
 
-const startClaimDevice = async (req, res) => {
+const startPairing = async (req, res) => {
     try {
-        const { id: deviceId } = req.body;
-        const { id: userId} = req.user;
+        const { id: deviceCode } = req.body;
+        const { id: userId } = req.user;
 
-        const prevOwner = await UserDeviceRole.findOne({
+        const device = await Device.findOne({
             where: {
-                deviceId,
-                role: 'OWNER'
+                publicId: deviceCode
             }
         })
 
-        if (prevOwner) {
-            return res.status(400).json({
-                success: false,
-                message: 'This device already has an owner.'
-            });
+        if (!device) {
+            throw new Error("No device found with that id");
         }
 
-        await UserDeviceRole.create({
-            userId,
-            deviceId,
-            role: 'OWNER'
-        });
+        const client = tcpServer.getConnectedDevices().get(device.uuid);
+
+        if (!client) {
+            throw new Error("Client is not connected to server");
+        }
+
+        const prevOwner = await UserDeviceRole.findOne({
+          where: {
+            deviceId: device.uuid,
+            role: "OWNER",
+          }  
+        })
+
+        if (prevOwner) {
+            throw new Error("This frame already has an owner");
+        }
+
+        const pin = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+
+        pairingDevices.set(deviceCode, {userId: userId, pin: pin, startTime: Date.now(), attempts: 0})
+
+        const buffer = await dither(await generateNumberImage(pin));
+        await sendBuffer(client, buffer);
 
         res.json({
             success: true,
         });
     } catch (e) {
-        console.error(e);
-        return res.status(500).json({
+        console.log(e)
+        return res.status(400).json({
             success: false,
-            message: 'An error occurred while claiming the device.'
+            data: {message: e || 'An error occurred while claiming the device.'}
         });
     }
 }
 
-module.exports = { createDevice, getUserDevices, getAllDevices, startClaimDevice }
+const completePairing = (req, res) => {
+    console.log(req);
+}
+
+module.exports = { createDevice, getUserDevices, getAllDevices, startPairing }

@@ -1,6 +1,8 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-
+const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid'); // UUID generator
+const SALT_ROUNDS = 12;
 
 // +-------------+----------+--------+
 // | STRING (PK) | DATE     | STRING |
@@ -9,29 +11,50 @@ const { sequelize } = require('../config/db');
 // +-------------+----------+--------+
 
 const Device = sequelize.define('Device', {
-    id: {
-        type: DataTypes.STRING(6),
+    uuid: {
+        type: DataTypes.UUID,
         primaryKey: true,
-        allowNull: false
+        defaultValue: uuidv4,
+    },
+    publicId: {
+        type: DataTypes.STRING(6),
+        unique: true,
+        allowNull: false,
+        validate: {
+        is: /^\d{6}$/
+        }
+    },
+    secret: {
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     lastSeen: {
         type: DataTypes.DATE,
-        allowNull: true
+        allowNull: true,
     },
     name: {
         type: DataTypes.STRING,
-        allowNull: true
-    }
+        allowNull: true,
+    },
 }, {
     hooks: {
-        beforeCreate: async (device) => {
-            device.id = await generateUniqueId();
+        beforeValidate: async (device) => {
+            if (!device.publicId) {
+                device.publicId = await generateUniquePublicId();
+            }
+        },
+        beforeSave: async (device) => {
+            if (device.changed('secret')) {
+                const salt = await bcrypt.genSalt(10);
+                device.secret = await bcrypt.hash(device.secret, salt);;
+            }
         }
     }
+
 });
 
-async function generateUniqueId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+async function generateUniquePublicId() {
+    const chars = '0123456789';
     
     while (true) {
         let result = '';
@@ -39,7 +62,7 @@ async function generateUniqueId() {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
 
-        const existingDevice = await Device.findOne({ where: { id: result } });
+        const existingDevice = await Device.findOne({ where: { publicId: result } });
         if (!existingDevice) {
             return result; // Return unique id
         }

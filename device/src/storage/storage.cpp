@@ -19,16 +19,13 @@ String read_at_address(int addr)
 
 void write_at_address(int addr, const String &s)
 {
-    for (size_t i = 0; i < s.length() && i < 64; i++) {
-        Serial.println(s[i]);
+    size_t len = s.length();
+    if (len > 63) len = 63; // max 63 chars + 1 null byte
+
+    for (size_t i = 0; i < len; i++) {
         EEPROM.write(addr + i, s[i]);
     }
 
-    size_t lastIndex = 63;
-    if (lastIndex > s.length()) {
-        lastIndex = s.length();
-    }
-
-    EEPROM.write(addr + lastIndex, 0);
+    EEPROM.write(addr + len, 0);
     EEPROM.commit();
 }

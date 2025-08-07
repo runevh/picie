@@ -62,7 +62,7 @@ export function FrameCover({ frame, size = 100 }: FrameCoverProps) {
           </Text>
 
           {frame.sharedWith && frame.sharedWith.length > 0 && (
-            <Tooltip label={`Shared with ${frame.sharedWith.join(", ")}`}>
+            <Tooltip label={`Shared with: ${frame.sharedWith.join(", ")}`}>
               <Badge
                 h={24}
                 mr={14}

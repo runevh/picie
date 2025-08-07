@@ -3,6 +3,8 @@
 
 const int SSID_ADDR = 0; // SSID is mx 32 bytes
 const int PASSW_ADDR = 64;
+const int UUID_ADDR = 128;
+const int KEY_ADDR = 192;
 
 void init_storage();
 

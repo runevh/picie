@@ -1,6 +1,7 @@
 import { Box, Image, Text, Overlay, Transition } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { Album } from "../../types/Photos";
+import { getUrlFromPhoto } from "../../util/UrlUtil";
 
 type AlbumCoverProps = {
   album: Album;
@@ -22,8 +23,8 @@ export function AlbumCover({ album, size = 163 }: AlbumCoverProps) {
     if (album.photos.length === 1) {
       return (
         <Image
-          src={album.photos[0]}
-          alt={album.title}
+          src={getUrlFromPhoto(album.photos[0])}
+          alt={album.name}
           fit="cover"
           height={size}
           width={size}
@@ -48,8 +49,8 @@ export function AlbumCover({ album, size = 163 }: AlbumCoverProps) {
         {photosToShow.map((photo, index) => (
           <Image
             key={index}
-            src={photo}
-            alt={`${album.title} ${index + 1}`}
+            src={getUrlFromPhoto(photo)}
+            alt={`${album.name} ${index + 1}`}
             width="100%"
             height="100%"
             fit="cover"
@@ -64,7 +65,8 @@ export function AlbumCover({ album, size = 163 }: AlbumCoverProps) {
       w={size}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ position: "relative", cursor: "pointer" }}
+      style={{ position: "relative", cursor: "pointer", borderRadius: 8 }}
+      bg={"gray.2"}
     >
       {renderPhotos()}
 
@@ -92,7 +94,7 @@ export function AlbumCover({ album, size = 163 }: AlbumCoverProps) {
         }}
       >
         <Text fw={500} size="md" lineClamp={2}>
-          {album.title}
+          {album.name}
         </Text>
       </Box>
 

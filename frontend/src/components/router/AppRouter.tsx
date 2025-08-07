@@ -8,6 +8,7 @@ import { Layout } from "../layout/Layout";
 import { IconBrandSuperhuman, IconHome, IconLibraryPhoto, IconPhotoScan, IconUser } from "@tabler/icons-react";
 import { PhotosPage } from "../photos/PhotosPage";
 import { FramesPage } from "../frames/FramesPage";
+import { AdminPage } from "../admin/AdminPage";
 
 export type AppRouterProps = {
   routes: Route[],
@@ -114,7 +115,7 @@ export const testRoutes: Route[] = [
     type: "ADMIN",
     redirect: "/",
     path: "/admin",
-    element: <Layout>Admin</Layout>,
+    element: <Layout><AdminPage/></Layout>,
     navbarInfo: {
       label: "Admin",
       icon: IconBrandSuperhuman,

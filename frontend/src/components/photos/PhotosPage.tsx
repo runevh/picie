@@ -5,7 +5,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useRef, useState } from "react";
 import { IconFilter, IconPlus } from "@tabler/icons-react";
 import { useAlbumEditor } from "./AlbumEditor";
-import { Album } from "../../types/Photos";
+import { usePhoto } from "../../contexts/PhotoContext";
 
 export function PhotosPage() {
   const isMobile = useIsMobile();
@@ -16,65 +16,7 @@ export function PhotosPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const { openEditor } = useAlbumEditor();
-
-
-  const albums: Album[] = [{
-    title: "Vacation 2024sdfsfsdf sdfdsf",
-    photos: [
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-    ],
-    id: "1",
-    collaborators: [
-      { email: "alice@example.com", editor: true, status: "accepted" },
-      { email: "bob@example.com", editor: false, status: "invited" },
-    ],
-  },
-  {
-    title: "Vacation 2024sdfsfsdf sdfdsf",
-    photos: [
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-    ],
-    id: "2",
-    collaborators: []
-  },
-  {
-    title: "Vacation 2024sdfsfsdf sdfdsf",
-    photos: [
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-      "https://webcdn.smint.io/media/1534471.jpg",
-    ],
-    id: "3",
-    collaborators: []
-  }
-  ]
+  const { createAlbum, albums } = usePhoto();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -110,7 +52,14 @@ export function PhotosPage() {
     };
   }, []);
 
-
+  const handleNewAlbum = async () => {
+    const res = await createAlbum();
+    if (res.success) {
+      openEditor(res.data, (_u) => {})
+    } else {
+      //TODO: Show error message
+    }
+  }
 
   
   return (
@@ -213,7 +162,7 @@ export function PhotosPage() {
               cursor: "pointer",
             }}
           >
-            <Text c="dimmed">+ New Album</Text>
+            <Text c="dimmed" onClick={handleNewAlbum}>+ New Album</Text>
           </Box>
         </Box>
       </Flex>
