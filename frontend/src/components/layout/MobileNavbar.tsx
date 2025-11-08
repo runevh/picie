@@ -20,22 +20,31 @@ export function MobileNavbar({routes} : NavbarProps) {
 
   return (
     <Box
-      pos="fixed"
-      bottom={0}
-      left={0}
-      right={0}
+      component="nav"
       h={60}
       bg="var(--mantine-color-body)"
       style={{
         borderTop: "1px solid var(--mantine-color-gray-3)",
-        zIndex: 1000,
+        width: "100%",
+        flexShrink: 0,
+        zIndex: 10,
+        position: "relative",
       }}
     >
       <Group justify="space-around" align="center" h="100%">
         {availableRoutes.map((route) => {
           const isActive = location.pathname === route.path;
           
-          return <NavbarItem onClick={() => navigate(route.path)} icon={route.navbarInfo!.icon} label={""} collapsed={false} active={isActive}></NavbarItem>
+          return (
+            <NavbarItem
+              key={route.path}
+              onClick={() => navigate(route.path)}
+              icon={route.navbarInfo!.icon}
+              label={""}
+              collapsed={false}
+              active={isActive}
+            />
+          )
         })}
       </Group>
     </Box>

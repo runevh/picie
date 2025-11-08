@@ -3,6 +3,17 @@ import { ResponseBody } from "../services/api";
 import { photoService } from "../services/PhotoService";
 import { Album, Photo } from "../types/Photos";
 
+const normalizeAlbumsResponse = (data: unknown): Album[] => {
+  if (Array.isArray(data)) return data as Album[];
+  if (data && typeof data === "object") {
+    const albumsList = (data as { albums?: unknown }).albums;
+    if (Array.isArray(albumsList)) {
+      return albumsList as Album[];
+    }
+  }
+  return [];
+};
+
 export interface AlbumReqData {
   id: string | null;
   name: string;
@@ -20,6 +31,7 @@ interface PhotoContextType {
   uploadPhoto: (data: PhotoReqData) => Promise<ResponseBody>;
   saveAlbum: (collage: Album) => Promise<ResponseBody>;
   createAlbum: () => Promise<ResponseBody>;
+  deleteAlbum: (albumId: string) => Promise<ResponseBody>;
 }
 
 const PhotoContext = createContext<PhotoContextType | undefined>(undefined);
@@ -77,15 +89,23 @@ export function PhotoProvider({ children }: { children: ReactNode }) {
     return res;
   }
 
+  const deleteAlbum = async (albumId: string): Promise<ResponseBody> => {
+    const res = await photoService.deleteAlbum(albumId);
+    if (res.success) {
+      setAlbums((prev) => prev.filter((album) => album.id !== albumId));
+    }
+    return res;
+  };
+
   const getCollages = async (): Promise<ResponseBody> => {
     const res = await photoService.getAlbums();
-    console.log(res.data);
-    setAlbums(_p => res.data);
+    const albumData = normalizeAlbumsResponse(res.data);
+    setAlbums(() => albumData);
     return res;
   }
 
   return (
-    <PhotoContext.Provider value={{ albums, uploadPhoto, saveAlbum, createAlbum }}>
+    <PhotoContext.Provider value={{ albums, uploadPhoto, saveAlbum, createAlbum, deleteAlbum }}>
       {children}
     </PhotoContext.Provider>
   );

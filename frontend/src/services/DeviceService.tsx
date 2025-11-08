@@ -20,4 +20,16 @@ export const deviceService = {
   endClaimDevice: async (pin: number) => {
     return await postRequest("device/claim/end", {pin});
   },
+
+  deleteDevice: async (id: string) => {
+    return await postRequest("device/delete", { id });
+  },
+
+  rebootDevice: async (id: string) => {
+    return await postRequest("device/reboot", { id });
+  },
+
+  getDeviceLogs: async (id: string) => {
+    return await postRequest("device/logs", { id });
+  },
 };

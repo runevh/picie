@@ -9,6 +9,8 @@ import { IconBrandSuperhuman, IconHome, IconLibraryPhoto, IconPhotoScan, IconUse
 import { PhotosPage } from "../photos/PhotosPage";
 import { FramesPage } from "../frames/FramesPage";
 import { AdminPage } from "../admin/AdminPage";
+import { AccountPage } from "../account/AccountPage";
+import { HomePage } from "../home/HomePage";
 
 export type AppRouterProps = {
   routes: Route[],
@@ -75,7 +77,7 @@ export const testRoutes: Route[] = [
     type: "AUTHORIZED",
     redirect: "/login",
     path: "/",
-    element: <Layout>Home</Layout>,
+    element: <Layout><HomePage/></Layout>,
     navbarInfo: {
       label: "Home",
       icon: IconHome,
@@ -105,7 +107,7 @@ export const testRoutes: Route[] = [
     type: "AUTHORIZED",
     redirect: "/login",
     path: "/account",
-    element: <Layout>Account</Layout>,
+    element: <Layout><AccountPage/></Layout>,
     navbarInfo: {
       label: "Account",
       icon: IconUser,

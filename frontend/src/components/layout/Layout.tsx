@@ -11,11 +11,38 @@ type LayoutProps = {
 
 export function Layout({ children }: LayoutProps) {
   const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <Flex direction="column" h="100vh" style={{ width: "100%" }}>
+        <Box
+          component="main"
+          style={{
+            flex: 1,
+            width: "100%",
+            overflowY: "auto",
+          }}
+        >
+          {children}
+        </Box>
+        <MobileNavbar routes={testRoutes} />
+      </Flex>
+    );
+  }
+
   return (
-    <Flex>
-      {!isMobile && <DesktopNavbar routes={testRoutes} />}
-      <Box style={{ flex: 1 }}>{children}</Box>
-      {isMobile && <MobileNavbar routes={testRoutes} />}
+    <Flex h="100vh" style={{ width: "100%" }}>
+      <DesktopNavbar routes={testRoutes} />
+      <Box
+        component="main"
+        style={{
+          flex: 1,
+          width: "100%",
+          overflowY: "auto",
+        }}
+      >
+        {children}
+      </Box>
     </Flex>
-  )
+  );
 }

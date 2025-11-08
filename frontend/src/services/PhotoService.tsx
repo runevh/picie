@@ -16,5 +16,9 @@ export const photoService = {
 
   getAlbums: async () => {
     return await getRequest("photo/albums/get", {});
+  },
+
+  deleteAlbum: async (albumId: string) => {
+    return await postRequest("photo/albums/delete", { id: albumId });
   }
 };

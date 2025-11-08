@@ -1,8 +1,10 @@
 export type Frame = {
-    name: string;
-    description?: string;
-    activeImage: string;
-    status: "online" | "offline";
-    currentAlbum: string;
-    sharedWith?: string[];
-}
+  id: string;
+  name: string;
+  description?: string;
+  activeImage: string;
+  status: "online" | "offline";
+  currentAlbum: string | null;
+  sharedWith?: string[];
+  refreshSchedule: "hourly" | "four-hours" | "daily-midnight" | "daily-morning";
+};

@@ -16,6 +16,9 @@ interface DeviceContextType {
     getAllUserDevices: () => Promise<ResponseBody>;
     startPairing: (id: string) => Promise<ResponseBody>;
     endClaimDevice: (pin: number) => Promise<ResponseBody>;
+    deleteDevice: (id: string) => Promise<ResponseBody>;
+    rebootDevice: (id: string) => Promise<ResponseBody>;
+    fetchDeviceLogs: (id: string) => Promise<ResponseBody>;
 }
 
 const DeviceContext = createContext<DeviceContextType | undefined>(undefined);
@@ -43,8 +46,20 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         return await deviceService.endClaimDevice(pin);
     }
 
+    const deleteDevice = async (id: string): Promise<ResponseBody> => {
+        return await deviceService.deleteDevice(id);
+    }
+
+    const rebootDevice = async (id: string): Promise<ResponseBody> => {
+        return await deviceService.rebootDevice(id);
+    }
+
+    const fetchDeviceLogs = async (id: string): Promise<ResponseBody> => {
+        return await deviceService.getDeviceLogs(id);
+    }
+
     return (
-        <DeviceContext.Provider value={{ devices, createDevice, getAllDevices, getAllUserDevices, startPairing, endClaimDevice }}>
+        <DeviceContext.Provider value={{ devices, createDevice, getAllDevices, getAllUserDevices, startPairing, endClaimDevice, deleteDevice, rebootDevice, fetchDeviceLogs }}>
             {children}
         </DeviceContext.Provider>
     );

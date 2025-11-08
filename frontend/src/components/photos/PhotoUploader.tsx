@@ -5,6 +5,8 @@ import { IconUpload, IconX, IconPhoto } from '@tabler/icons-react';
 import { PhotoEditor } from './PhotoEditor';
 import { Album, Photo } from '../../types/Photos';
 
+const UPLOADER_MODAL_Z_INDEX = 2400;
+
 type PhotoUploaderContextType = {
   openUploader: (album: Album, onAdd: (photo: Photo) => void) => void;
 };
@@ -56,7 +58,15 @@ export function PhotoUploaderProvider({ children }: { children: React.ReactNode 
           image={uploadedImage}
         />
       ) : (
-        <Modal withCloseButton={false} opened={opened} onClose={close} centered size="lg" zIndex={1000}>
+        <Modal
+          withCloseButton={false}
+          opened={opened}
+          onClose={close}
+          centered
+          size="lg"
+          zIndex={UPLOADER_MODAL_Z_INDEX}
+          overlayProps={{ opacity: 0.55, blur: 4 }}
+        >
           <Text size="xl" fw={300} mb="md">Add Photo</Text>
           <Dropzone
             multiple={false}
