@@ -23,6 +23,7 @@
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.7",
     "embla-carousel-react": "^8.5.2",
+    "heic2any": "^0.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-draggable": "^4.4.6",

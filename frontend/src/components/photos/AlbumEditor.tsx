@@ -1,4 +1,4 @@
-import { Box, Modal, Stack, TextInput, Text, Button, Group, Checkbox, Avatar, Badge, ActionIcon, ScrollArea, Drawer, Paper, SimpleGrid, Tooltip } from "@mantine/core";
+import { Box, Modal, Stack, TextInput, Text, Button, Group, Checkbox, Avatar, Badge, ActionIcon, ScrollArea, Drawer, Paper, SimpleGrid } from "@mantine/core";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Album, Collaborator } from "../../types/Photos";
 import { IconTrash, IconPhotoPlus, IconCheck, IconX } from "@tabler/icons-react";
@@ -10,7 +10,7 @@ import { usePhoto } from "../../contexts/PhotoContext";
 type AlbumEditorProps = {
   opened: boolean;
   album: Album;
-  onSave: (album: Album, options?: { close?: boolean }) => void;
+  onSave: (album: Album, options?: { close?: boolean }) => Promise<Album | void> | Album | void;
   onDismiss: () => void;
 };
 
@@ -22,14 +22,18 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [albumDeleteConfirmOpen, setAlbumDeleteConfirmOpen] = useState(false);
+  const [cancelDraftConfirmOpen, setCancelDraftConfirmOpen] = useState(false);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextSaveRef = useRef(true);
   const hasPendingChangesRef = useRef(false);
   const { openUploader } = usePhotoUploader();
-  const { deleteAlbum } = usePhoto();
+  const { deleteAlbum, deletePhotos } = usePhoto();
   const markDirty = useCallback(() => {
     hasPendingChangesRef.current = true;
   }, []);
+
+  const showCollaborators = false;
 
   const isMobile = useIsMobile();
   const isDraft = useMemo(() => album.id.startsWith("draft-"), [album.id]);
@@ -42,7 +46,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     setSelectedPhotoIds(new Set());
     skipNextSaveRef.current = true;
     hasPendingChangesRef.current = false;
-  }, [album.id]);
+  }, [album.id, album.photos]);
 
   const handleRemove = (email: string) => {
     setCollaborators((prev) => prev.filter((c) => c.email !== email));
@@ -72,9 +76,19 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     markDirty();
   };
 
+  const handleCancelDraft = () => {
+    if (photos.length > 0) {
+      setCancelDraftConfirmOpen(true);
+      return;
+    }
+    onDismiss();
+  };
+
   const handleUploadPicture = () => {
-    if (isDraft) return;
-    openUploader(album, () => {});
+    openUploader(album, (photo) => {
+      setPhotos((prev) => [...prev, photo]);
+      markDirty();
+    });
   };
 
   const togglePhotoSelection = (photoId: string) => {
@@ -96,15 +110,27 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     setDeleteConfirmOpen(true);
   };
 
-  const handleDeleteSelectedPhotos = () => {
+  const handleDeleteSelectedPhotos = async () => {
     if (selectedPhotoIds.size === 0) {
       setDeleteConfirmOpen(false);
       return;
     }
-    setPhotos((prev) => prev.filter((photo) => !selectedPhotoIds.has(photo.id)));
-    setSelectedPhotoIds(new Set());
+
+    const idsToDelete = Array.from(selectedPhotoIds);
     setDeleteConfirmOpen(false);
-    markDirty();
+    setSelectedPhotoIds(new Set());
+
+    if (isDraft) {
+      setPhotos((prev) => prev.filter((photo) => !selectedPhotoIds.has(photo.id)));
+      markDirty();
+      return;
+    }
+
+    const res = await deletePhotos(idsToDelete);
+    if (res.success) {
+      setPhotos((prev) => prev.filter((photo) => !idsToDelete.includes(photo.id)));
+      markDirty();
+    }
   };
 
   const buildAlbumPayload = useCallback((): Album => ({
@@ -115,14 +141,20 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
   }), [album.id, collaborators, name, photos]);
 
   useEffect(() => {
+    if (isDraft) return;
     if (skipNextSaveRef.current) {
       skipNextSaveRef.current = false;
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      onSave(buildAlbumPayload());
-       hasPendingChangesRef.current = false;
+      const maybePromise = onSave(buildAlbumPayload());
+      if (maybePromise && typeof (maybePromise as Promise<Album | void>).then === "function") {
+        (maybePromise as Promise<Album | void>).catch((error) => {
+          console.error("Album autosave failed", error);
+        });
+      }
+      hasPendingChangesRef.current = false;
       if (autosaveTimeoutRef.current === timeoutId) {
         autosaveTimeoutRef.current = null;
       }
@@ -136,18 +168,69 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [buildAlbumPayload, onSave]);
+  }, [buildAlbumPayload, onSave, isDraft]);
 
   const handleClose = () => {
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current);
       autosaveTimeoutRef.current = null;
     }
+    if (isDraft) {
+      hasPendingChangesRef.current = false;
+      onDismiss();
+      return;
+    }
     if (hasPendingChangesRef.current) {
       hasPendingChangesRef.current = false;
-      onSave(buildAlbumPayload(), { close: true });
+      const maybePromise = onSave(buildAlbumPayload(), { close: true });
+      if (maybePromise && typeof (maybePromise as Promise<Album | void>).then === "function") {
+        (maybePromise as Promise<Album | void>).catch((error) => {
+          console.error("Album save on close failed", error);
+        });
+      }
     } else {
       onDismiss();
+    }
+  };
+
+  const handleCreateDraft = () => {
+    if (!isDraft || isCreatingDraft) return;
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+    setIsCreatingDraft(true);
+    const payload = buildAlbumPayload();
+    let maybePromise: Promise<Album | void> | Album | void;
+    try {
+      maybePromise = onSave(payload);
+    } catch (error) {
+      console.error("Album creation failed", error);
+      setIsCreatingDraft(false);
+      return;
+    }
+
+    const complete = (result?: Album | void) => {
+      const nextId = result?.id ?? album.id;
+      const success = typeof nextId === "string" ? !nextId.startsWith("draft-") : false;
+      if (success) {
+        hasPendingChangesRef.current = false;
+        onDismiss();
+      } else {
+        hasPendingChangesRef.current = true;
+      }
+      setIsCreatingDraft(false);
+    };
+
+    if (maybePromise && typeof (maybePromise as Promise<Album | void>).then === "function") {
+      (maybePromise as Promise<Album | void>)
+        .then((result) => complete(result))
+        .catch((error) => {
+          console.error("Album creation failed", error);
+          complete();
+        });
+    } else {
+      complete(maybePromise as Album | void);
     }
   };
 
@@ -175,6 +258,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
   const photoCount = photos.length;
   const selectedCount = selectedPhotoIds.size;
   const hasSelection = selectedCount > 0;
+  const creationLocked = isDraft && isCreatingDraft;
 
   const heroImage =
     photos.length > 0
@@ -187,7 +271,29 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
         Nobody has access yet. Invite collaborators to share this album.
       </Text>
     ) : (
-      <ScrollArea mah={180} scrollbarSize={6}>
+      <ScrollArea
+        mah={180}
+        scrollbarSize={6}
+        scrollHideDelay={0}
+        styles={(theme) => ({
+          scrollbar: {
+            background: "transparent",
+          },
+          thumb: {
+            backgroundColor: "rgba(0, 0, 0, 0.25)",
+            borderRadius: 12,
+            border: "2px solid transparent",
+          },
+          corner: {
+            backgroundColor: "transparent",
+          },
+          viewport: {
+            // Firefox fallback
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(0, 0, 0, 0.25) transparent",
+          },
+        })}
+      >
         <Stack gap="sm">
           {collaborators.map((c, i) => (
             <Group key={c.email} justify="space-between" gap="sm" align="center">
@@ -216,6 +322,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
                 <Checkbox
                   label="Editor"
                   checked={c.editor}
+                  disabled={creationLocked}
                   onChange={(e) =>
                     handleCollaboratorChange(i, { editor: e.currentTarget.checked })
                   }
@@ -223,6 +330,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
                 <ActionIcon
                   variant="light"
                   color="red"
+                  disabled={creationLocked}
                   onClick={() => handleRemove(c.email)}
                   aria-label={`Remove ${c.email}`}
                 >
@@ -292,19 +400,13 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     );
 
   const renderAddPhotoButton = () => (
-    <Tooltip
-      label={isDraft ? "Save your album first to start uploading photos" : "Upload a photo"}
-      disabled={!isDraft}
+    <Button
+      leftSection={<IconPhotoPlus size={16} />}
+      variant="light"
+      onClick={handleUploadPicture}
     >
-      <Button
-        leftSection={<IconPhotoPlus size={16} />}
-        variant="light"
-        disabled={isDraft}
-        onClick={handleUploadPicture}
-      >
-        Add photo
-      </Button>
-    </Tooltip>
+      Add photo
+    </Button>
   );
 
   const Content = (
@@ -339,17 +441,6 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           >
             <ActionIcon
               variant="subtle"
-              aria-label="Delete album"
-              onClick={() => setAlbumDeleteConfirmOpen(true)}
-              style={{
-                backgroundColor: "rgba(255, 255, 255, 0.15)",
-                color: "var(--mantine-color-red-4)",
-              }}
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-            <ActionIcon
-              variant="subtle"
               aria-label="Close editor"
               onClick={handleClose}
               style={{
@@ -377,7 +468,41 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
               {name || "Untitled album"}
             </Text>
             <Group gap="sm">
+              {isDraft && (
+                <>
+                  <Button
+                    onClick={handleCreateDraft}
+                    loading={isCreatingDraft}
+                    disabled={creationLocked}
+                  >
+                    Create album
+                  </Button>
+                  <Button
+                    variant="subtle"
+                    color="red"
+                    style={{
+                      backgroundColor: "transparent",
+                      border: "1px solid rgba(255,0,0,0.3)",
+                    }}
+                    onClick={handleCancelDraft}
+                    disabled={creationLocked}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
               {renderAddPhotoButton()}
+              {!isDraft && (
+                <Button
+                  variant="light"
+                  color="red"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() => setAlbumDeleteConfirmOpen(true)}
+                  disabled={creationLocked}
+                >
+                  Delete album
+                </Button>
+              )}
             </Group>
           </Stack>
         </Box>
@@ -388,6 +513,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
               label="Album name"
               placeholder="Give your album a title"
               value={name}
+              disabled={creationLocked}
               onChange={(e) => handleNameChange(e.currentTarget.value)}
             />
             <Text size="xs" c="dimmed">
@@ -396,27 +522,32 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           </Stack>
         </Paper>
 
-        <Paper withBorder radius="lg" p="md">
-          <Stack gap="sm">
-            <Group align="flex-end" gap="sm">
-              <TextInput
-                label="Invite collaborators"
-                placeholder="name@email.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    handleInvite();
-                  }
-                }}
-                style={{ flex: 1 }}
-              />
-              <Button onClick={handleInvite}>Invite</Button>
-            </Group>
-            {collaboratorSection}
-          </Stack>
-        </Paper>
+        {showCollaborators && (
+          <Paper withBorder radius="lg" p="md">
+            <Stack gap="sm">
+              <Group align="flex-end" gap="sm">
+                <TextInput
+                  label="Invite collaborators"
+                  placeholder="name@email.com"
+                  value={inviteEmail}
+                  disabled={creationLocked}
+                  onChange={(e) => setInviteEmail(e.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleInvite();
+                    }
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <Button onClick={handleInvite} disabled={creationLocked}>
+                  Invite
+                </Button>
+              </Group>
+              {collaboratorSection}
+            </Stack>
+          </Paper>
+        )}
 
         <Paper withBorder radius="lg" p="md">
           <Stack gap="sm">
@@ -479,6 +610,31 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     </Modal>
   );
 
+  const cancelDraftConfirmModal = (
+    <Modal
+      opened={cancelDraftConfirmOpen}
+      onClose={() => setCancelDraftConfirmOpen(false)}
+      title="Discard this draft?"
+      centered
+      size="sm"
+      zIndex={2000}
+    >
+      <Stack gap="md">
+        <Text>
+          You have added photos to this draft. If you cancel now, your unsaved photos will be discarded. Are you sure you want to continue?
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={() => setCancelDraftConfirmOpen(false)}>
+            Keep editing
+          </Button>
+          <Button color="red" onClick={() => { setCancelDraftConfirmOpen(false); onDismiss(); }}>
+            Discard draft
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+
   const deleteAlbumConfirmModal = (
     <Modal
       opened={albumDeleteConfirmOpen}
@@ -523,6 +679,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
         </Drawer>
         {deleteConfirmModal}
         {deleteAlbumConfirmModal}
+        {cancelDraftConfirmModal}
       </>
     );
   }
@@ -542,6 +699,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
       </Modal>
       {deleteConfirmModal}
       {deleteAlbumConfirmModal}
+      {cancelDraftConfirmModal}
     </>
   );
 }
@@ -581,25 +739,36 @@ export function AlbumEditorProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const persistAlbum = useCallback((updated: Album, options?: { close?: boolean }) => {
-    const maybeResult = onSave?.(updated);
+    const executeSave = () => {
+      const maybeResult = onSave?.(updated);
 
-    const finalize = (next?: Album) => {
-      const normalized = next ?? updated;
-      setStagedAlbum(normalized);
-      setAlbumId(normalized.id);
-      if (options?.close) {
-        closeEditor();
+      const finalize = (next?: Album) => {
+        const normalized = next ?? updated;
+        setStagedAlbum(normalized);
+        setAlbumId(normalized.id);
+        if (options?.close) {
+          closeEditor();
+        }
+        return normalized;
+      };
+
+      if (maybeResult && typeof (maybeResult as Promise<Album | void>).then === "function") {
+        return (maybeResult as Promise<Album | void>)
+          .then((value) => finalize(value))
+          .catch((error) => {
+            console.error("Album save failed", error);
+            throw error;
+          });
       }
+
+      return Promise.resolve(finalize(maybeResult as Album | void));
     };
 
-    if (maybeResult && typeof (maybeResult as Promise<Album | void>).then === "function") {
-      (maybeResult as Promise<Album | void>)
-        .then((value) => finalize(value))
-        .catch((error) => {
-          console.error("Album save failed", error);
-        });
-    } else {
-      finalize(maybeResult as Album | void);
+    try {
+      return executeSave();
+    } catch (error) {
+      console.error("Album save failed", error);
+      return Promise.reject(error);
     }
   }, [closeEditor, onSave]);
 

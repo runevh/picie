@@ -7,6 +7,8 @@ export type Album = {
 
 export type Photo = {
   id: string;
+  url?: string;
+  previewData?: string;
 }
 
 export type Collaborator = {

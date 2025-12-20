@@ -22,13 +22,16 @@ export function AlbumCover({ album, size = 163 }: AlbumCoverProps) {
   const renderPhotos = () => {
     if (album.photos.length === 1) {
       return (
-        <Image
-          src={getUrlFromPhoto(album.photos[0])}
-          alt={album.name}
-          fit="cover"
-          height={size}
-          width={size}
-          radius="md"
+        <Box
+          w={size}
+          h={size}
+          style={{
+            borderRadius: 8,
+            backgroundImage: `url(${getUrlFromPhoto(album.photos[0])})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            overflow: "hidden",
+          }}
         />
       );
     }
@@ -47,13 +50,15 @@ export function AlbumCover({ album, size = 163 }: AlbumCoverProps) {
         }}
       >
         {photosToShow.map((photo, index) => (
-          <Image
+          <Box
             key={index}
-            src={getUrlFromPhoto(photo)}
-            alt={`${album.name} ${index + 1}`}
-            width="100%"
-            height="100%"
-            fit="cover"
+            style={{
+              width: "100%",
+              height: "100%",
+              backgroundImage: `url(${getUrlFromPhoto(photo)})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
           />
         ))}
       </Box>

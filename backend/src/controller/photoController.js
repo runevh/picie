@@ -1,8 +1,42 @@
 const {dither } = require('../services/photo/dithering')
 const fs = require("fs");
-const { Photo, Collage, Album } = require('../models/photo');
+const { Photo, Album } = require('../models/photo');
 const generateName = require('sillyname');
 const path = require('path');
+const { randomBytes, createCipheriv, createDecipheriv } = require('crypto');
+
+const ALGO = 'aes-256-gcm';
+const KEY = process.env.PHOTO_ENC_KEY ? Buffer.from(process.env.PHOTO_ENC_KEY, 'base64') : null;
+
+const getKey = () => {
+    if (!KEY || KEY.length !== 32) {
+        throw new Error('PHOTO_ENC_KEY is missing or invalid length');
+    }
+    return KEY;
+};
+
+const encryptBuffer = (data) => {
+    const key = getKey();
+    const iv = randomBytes(12);
+    const cipher = createCipheriv(ALGO, key, iv);
+    const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    // store iv (12) + tag (16) + ciphertext
+    return Buffer.concat([iv, tag, encrypted]);
+};
+
+const decryptBuffer = (data) => {
+    const key = getKey();
+    if (data.length < 12 + 16) {
+        throw new Error('Encrypted data too short');
+    }
+    const iv = data.subarray(0, 12);
+    const tag = data.subarray(12, 28);
+    const encrypted = data.subarray(28);
+    const decipher = createDecipheriv(ALGO, key, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+};
 
 const savePhoto = async (req, res) => {
     try {
@@ -18,13 +52,15 @@ const savePhoto = async (req, res) => {
 
         const base64WithoutPrefix = req.body.data.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64WithoutPrefix, 'base64');
+        const encryptedImage = encryptBuffer(buffer);
     
         const filePath = path.join(__dirname, '..', '..', 'photos', `${photo.id}`);
         console.log(filePath);
-        fs.writeFileSync(filePath + ".png", buffer);
+        fs.writeFileSync(filePath + ".png", encryptedImage);
 
-        const bytes = await dither(buffer);
-        fs.writeFileSync(filePath + ".data", bytes);
+        const ditheredBytes = await dither(buffer);
+        const encodedBytes = encryptBuffer(ditheredBytes);
+        fs.writeFileSync(filePath + ".data", encodedBytes);
 
         res.status(200).json({
             id: photo.id,
@@ -59,20 +95,20 @@ const savePhotoCollage = async (req, res) => {
 
         const id = req.body.id;
 
-        const collage = await Collage.findOne({
+        const album = await Album.findOne({
             where: {
                 id: id,
                 owner: user
             }
         });
 
-        if (!collage) {
-            return res.status(404).send("Collage not found or you don't have permission");
+        if (!album) {
+            return res.status(404).send("Album not found or you don't have permission");
         }
 
-        await collage.update({
+        await album.update({
             name: req.body.name
-        })
+        });
 
         res.status(200).send("ok");
     } catch (e) {
@@ -100,9 +136,15 @@ const getAlbums = async (req, res) => {
                     attributes: ['id']
                 });
 
+                const baseUrl = `${req.protocol}://${req.get('host')}`;
+                const photosWithUrls = photos.map((photo) => ({
+                    id: photo.id,
+                    url: `${baseUrl}/api/photo/get/${photo.id}.png`,
+                }));
+
                 return {
                     ...album.toJSON(),
-                    photos: photos
+                    photos: photosWithUrls
                 };
             })
         );
@@ -131,24 +173,108 @@ const getPhoto = async (req, res) => {
         }
 
         const filePath = `./photos/${photoId}.png`;
-
-        const stream = fs.createReadStream(filePath);
-
-        stream.on('error', (err) => {
-            if (err.code === 'ENOENT') {
-                res.status(404).send('Image not found');
-            } else {
-                console.error(err);
-                res.status(500).send('Internal server error');
-            }
-        });
+        const encrypted = fs.readFileSync(filePath);
+        const decrypted = decryptBuffer(encrypted);
 
         res.set('Content-Type', 'image/png');
-        stream.pipe(res);
+        res.send(decrypted);
     } catch (e) {
         console.log(e);
         res.status(403).send("Forbidden");
     }
 }
 
-module.exports = { savePhoto, getPhoto, createAlbum, savePhotoCollage, getAlbums }
+const deleteAlbum = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const albumId = req.body.id;
+
+        if (!albumId) {
+            return res.status(400).send("Album id is required");
+        }
+
+        const album = await Album.findOne({
+            where: {
+                id: albumId,
+                owner: userId,
+            },
+        });
+
+        if (!album) {
+            return res.status(404).send("Album not found or you don't have permission");
+        }
+
+        const photos = await Photo.findAll({
+            where: {
+                albumId: albumId,
+                owner: userId,
+            },
+        });
+
+        const photoIds = photos.map((p) => p.id);
+
+        if (photoIds.length) {
+            await Photo.destroy({
+                where: {
+                    id: photoIds,
+                    owner: userId,
+                },
+            });
+        }
+
+        for (const id of photoIds) {
+            const pngPath = path.join(__dirname, '..', '..', 'photos', `${id}.png`);
+            const dataPath = path.join(__dirname, '..', '..', 'photos', `${id}.data`);
+            try { fs.unlinkSync(pngPath); } catch (_) {}
+            try { fs.unlinkSync(dataPath); } catch (_) {}
+        }
+
+        await album.destroy();
+
+        res.status(200).json({ deleted: albumId, photosDeleted: photoIds });
+    } catch (e) {
+        console.log(e);
+        res.status(500).send("Error deleting album");
+    }
+};
+
+const deletePhotos = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+
+        if (ids.length === 0) {
+            return res.status(400).send("No photo ids provided");
+        }
+
+        const photos = await Photo.findAll({
+            where: {
+                id: ids,
+                owner: userId,
+            },
+        });
+
+        const foundIds = photos.map(p => p.id);
+
+        await Photo.destroy({
+            where: {
+                id: foundIds,
+                owner: userId,
+            },
+        });
+
+        for (const id of foundIds) {
+            const pngPath = path.join(__dirname, '..', '..', 'photos', `${id}.png`);
+            const dataPath = path.join(__dirname, '..', '..', 'photos', `${id}.data`);
+            try { fs.unlinkSync(pngPath); } catch (_) {}
+            try { fs.unlinkSync(dataPath); } catch (_) {}
+        }
+
+        res.status(200).json({ deleted: foundIds });
+    } catch (e) {
+        console.log(e);
+        res.status(500).send("Error deleting photos");
+    }
+}
+
+module.exports = { savePhoto, getPhoto, createAlbum, savePhotoCollage, getAlbums, deletePhotos, deleteAlbum }

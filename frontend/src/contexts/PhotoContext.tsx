@@ -2,6 +2,7 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 import { ResponseBody } from "../services/api";
 import { photoService } from "../services/PhotoService";
 import { Album, Photo } from "../types/Photos";
+import { getApiBase } from "../util/UrlUtil";
 
 const normalizeAlbumsResponse = (data: unknown): Album[] => {
   if (Array.isArray(data)) return data as Album[];
@@ -32,6 +33,7 @@ interface PhotoContextType {
   saveAlbum: (collage: Album) => Promise<ResponseBody>;
   createAlbum: () => Promise<ResponseBody>;
   deleteAlbum: (albumId: string) => Promise<ResponseBody>;
+  deletePhotos: (photoIds: string[]) => Promise<ResponseBody>;
 }
 
 const PhotoContext = createContext<PhotoContextType | undefined>(undefined);
@@ -46,7 +48,11 @@ export function PhotoProvider({ children }: { children: ReactNode }) {
   const uploadPhoto = async (data: PhotoReqData): Promise<ResponseBody> => {
     const res = await photoService.uploadPhoto(data);
     if (res.success) {
-      const photo: Photo = { id:res.data.id };
+      const photoId = res.data.id;
+      const photo: Photo = {
+        id: photoId,
+        url: `${getApiBase()}api/photo/get/${photoId}.png`,
+      };
       setAlbums((prevAlbums) =>
         prevAlbums.map((album) =>
           album.id === data.albumId
@@ -97,6 +103,19 @@ export function PhotoProvider({ children }: { children: ReactNode }) {
     return res;
   };
 
+  const deletePhotos = async (photoIds: string[]): Promise<ResponseBody> => {
+    const res = await photoService.deletePhotos(photoIds);
+    if (res.success) {
+      setAlbums((prev) =>
+        prev.map((album) => ({
+          ...album,
+          photos: album.photos.filter((p) => !photoIds.includes(p.id)),
+        }))
+      );
+    }
+    return res;
+  };
+
   const getCollages = async (): Promise<ResponseBody> => {
     const res = await photoService.getAlbums();
     const albumData = normalizeAlbumsResponse(res.data);
@@ -105,7 +124,7 @@ export function PhotoProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <PhotoContext.Provider value={{ albums, uploadPhoto, saveAlbum, createAlbum, deleteAlbum }}>
+    <PhotoContext.Provider value={{ albums, uploadPhoto, saveAlbum, createAlbum, deleteAlbum, deletePhotos }}>
       {children}
     </PhotoContext.Provider>
   );

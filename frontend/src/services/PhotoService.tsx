@@ -10,8 +10,8 @@ export const photoService = {
     return await postRequest("photo/albums/save", collage);
   },
 
-  createAlbum: async () => {
-    return await postRequest("photo/albums/create", {});
+  createAlbum: async (collage: AlbumReqData) => {
+    return await postRequest("photo/albums/create", collage);
   },
 
   getAlbums: async () => {
@@ -20,5 +20,9 @@ export const photoService = {
 
   deleteAlbum: async (albumId: string) => {
     return await postRequest("photo/albums/delete", { id: albumId });
+  },
+
+  deletePhotos: async (ids: string[]) => {
+    return await postRequest("photo/delete", { ids });
   }
 };

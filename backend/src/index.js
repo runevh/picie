@@ -5,7 +5,7 @@ const { register, login, fetchUser, logout } = require('../src/controller/userCo
 const { createDevice, getAllDevices, startPairing, getUserDevices } = require('../src/controller/deviceController')
 const { auth, admin } = require('../src/middleware/auth');
 const http = require('http');
-const { savePhoto, getPhoto, getAlbums, savePhotoCollage, createAlbum } = require('./controller/photoController');
+const { savePhoto, getPhoto, getAlbums, savePhotoCollage, createAlbum, deletePhotos, deleteAlbum } = require('./controller/photoController');
 const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const tcpServer = require('./services/tcpServer');
@@ -45,7 +45,9 @@ router.post('/photo/upload', auth, savePhoto);
 router.post('/photo/albums/create', auth, createAlbum);
 router.post('/photo/albums/save', auth, savePhotoCollage);
 router.get('/photo/albums/get', auth, getAlbums);
+router.post('/photo/albums/delete', auth, deleteAlbum);
 router.get('/photo/get/:id.png', auth, getPhoto);
+router.post('/photo/delete', auth, deletePhotos);
 
 router.post('/device/create', auth, admin, createDevice);
 router.get('/device/all/admin', auth, admin, getAllDevices);

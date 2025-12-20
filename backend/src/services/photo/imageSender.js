@@ -15,12 +15,12 @@ async function getRawData(photoId) {
     });
 }
 
-const sendImage = async (client) => {
+const sendImage = async (client, photoId) => {
     // Request size that we should send over
 
     try {
-        const rawBytes = await getRawData("f086ed69-245c-4403-827c-0755e83b58c0");
-        
+        const rawBytes = await getRawData(photoId);
+
         client.send([0x20]); // Ask to start image transfer
         let sentBytes = 0;
 
@@ -43,9 +43,7 @@ const sendImage = async (client) => {
 
 const sendBuffer = async (client, buffer) => {
     // Request size that we should send over
-
     try {
-        
         client.send([0x20]); // Ask to start image transfer
         let sentBytes = 0;
 

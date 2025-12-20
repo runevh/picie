@@ -17,7 +17,7 @@ export function PhotosPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const { openEditor } = useAlbumEditor();
-  const { createAlbum, saveAlbum, albums } = usePhoto();
+  const { createAlbum, saveAlbum, uploadPhoto, albums } = usePhoto();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -74,7 +74,23 @@ export function PhotosPage() {
           return updated;
         }
 
-        const persisted: Album = { ...updated, id: resolvedId };
+        const stagedPhotos = updated.photos || [];
+        const carriedOver = stagedPhotos.filter((photo) => !photo.previewData);
+        const uploadedPhotos: Album["photos"] = [...carriedOver];
+
+        for (const photo of stagedPhotos) {
+          if (!photo.previewData) continue;
+          const response = await uploadPhoto({
+            albumId: resolvedId,
+            data: photo.previewData,
+          });
+
+          if (response.success && response.data?.id) {
+            uploadedPhotos.push({ id: response.data.id });
+          }
+        }
+
+        const persisted: Album = { ...updated, id: resolvedId, photos: uploadedPhotos };
         await saveAlbum(persisted);
         return persisted;
       }
@@ -99,21 +115,6 @@ export function PhotosPage() {
     [albums]
   );
 
-  const sharedAlbums = useMemo(
-    () => albums.filter((album) => (album.collaborators?.length ?? 0) > 0).length,
-    [albums]
-  );
-
-  const collaboratorCount = useMemo(() => {
-    const set = new Set<string>();
-    albums.forEach((album) =>
-      album.collaborators?.forEach((collab) => {
-        if (collab.email) set.add(collab.email);
-      })
-    );
-    return set.size;
-  }, [albums]);
-
   const stats = useMemo(
     () => [
       {
@@ -128,20 +129,8 @@ export function PhotosPage() {
         description: "Across all albums",
         icon: <IconPhoto size={16} />,
       },
-      {
-        label: "Shared albums",
-        value: sharedAlbums,
-        description: "Collaborating with others",
-        icon: <IconUsers size={16} />,
-      },
-      {
-        label: "Collaborators",
-        value: collaboratorCount,
-        description: "People with access",
-        icon: <IconUsers size={16} />,
-      },
     ],
-    [albums.length, collaboratorCount, sharedAlbums, totalPhotos]
+    [albums.length, totalPhotos]
   );
 
   const newAlbumSize = 163 * scale;
@@ -264,7 +253,6 @@ export function PhotosPage() {
               justifyContent: "center",
               gap: 8,
               cursor: "pointer",
-              background: "linear-gradient(135deg, rgba(241, 243, 245, 1), rgba(241, 243, 245, 0.6))",
             }}
             onClick={handleNewAlbum}
             role="button"

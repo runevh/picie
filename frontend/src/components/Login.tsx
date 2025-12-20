@@ -1,4 +1,4 @@
-import { Paper, Text, Button, TextInput, Stack, Notification, PasswordInput, Group, Anchor, Container, LoadingOverlay, BackgroundImage, Title, Divider, ThemeIcon, Box } from '@mantine/core';
+import { Paper, Text, Button, TextInput, Stack, Notification, PasswordInput, Group, Anchor, Container, LoadingOverlay, BackgroundImage, Title, Divider, Box } from '@mantine/core';
 import { isEmail, useForm } from '@mantine/form';
 import { useToggle } from '@mantine/hooks';
 import { useAuth } from '../contexts/UserContext';

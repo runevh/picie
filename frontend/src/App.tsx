@@ -17,15 +17,15 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <PhotoProvider>
-          <PhotoUploaderProvider>
-            <AlbumEditorProvider>
-              <DeviceProvider>
-                <FrameAdderProvider>
-                  <AppRouter routes={testRoutes}></AppRouter>
-                </FrameAdderProvider>
-              </DeviceProvider>
-            </AlbumEditorProvider>
-          </PhotoUploaderProvider>
+            <PhotoUploaderProvider>
+              <AlbumEditorProvider>
+                <DeviceProvider>
+                  <FrameAdderProvider>
+                    <AppRouter routes={testRoutes}></AppRouter>
+                  </FrameAdderProvider>
+                </DeviceProvider>
+              </AlbumEditorProvider>
+            </PhotoUploaderProvider>
           </PhotoProvider>
         </AuthProvider> 
       </BrowserRouter>
