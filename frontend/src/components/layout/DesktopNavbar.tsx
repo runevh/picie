@@ -1,4 +1,4 @@
-import { Box, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { Box, Group, Stack, Text, Tooltip, UnstyledButton, useComputedColorScheme } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { NavbarItemProps, NavbarProps } from "./Navbar.types";
@@ -13,6 +13,10 @@ export function DesktopNavbar({ routes } : NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
+  const isDark = computedColorScheme === "dark";
+  const surface = isDark ? "rgba(14, 20, 33, 0.92)" : "rgba(255, 255, 255, 0.9)";
+  const border = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.45)";
 
   useEffect(() => {
     if (contentRef.current && !collapsed) {
@@ -41,13 +45,28 @@ export function DesktopNavbar({ routes } : NavbarProps) {
         display={"flex"}
         p={"md"}
         style={{
-          borderRight:
-            "1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-5))",
+          position: "relative",
+          borderRight: `1px solid ${border}`,
+          background: isDark
+            ? "linear-gradient(180deg, rgba(17,24,39,0.92) 0%, rgba(17,24,39,0.86) 100%)"
+            : "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,250,255,0.9) 100%)",
+          backdropFilter: "blur(10px)",
           transition: "width 150ms ease",
           overflow: "hidden",
           willChange: "width",
+          boxShadow: isDark ? "16px 0 60px -60px rgba(0,0,0,0.8)" : "16px 0 60px -60px rgba(15, 23, 42, 0.4)",
         }}
       >
+        <Box
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(circle at 70% 8%, rgba(52,125,244,0.12), transparent 28%)," +
+              "radial-gradient(circle at 40% 92%, rgba(132,94,247,0.12), transparent 26%)",
+            pointerEvents: "none",
+          }}
+        />
         <Stack justify="space-between" h="100%">
           <Stack gap={4}>
             <Group

@@ -1,6 +1,6 @@
 import { Card, Stack, Group, Text, Tooltip, Badge, Box, ThemeIcon } from "@mantine/core";
 import { Frame } from "./Frame.types";
-import { IconClock, IconPhoto, IconUsers, IconWifi, IconWifiOff } from "@tabler/icons-react";
+import { IconPhoto, IconUsers, IconWifi, IconWifiOff } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { useIsMobile } from "../../util/LayoutUtil";
 
@@ -9,41 +9,49 @@ type FrameCoverProps = {
   onClick?: (frame: Frame) => void;
 };
 
-const scheduleLabelMap: Record<Frame["refreshSchedule"], string> = {
-  "hourly": "Next in ~1h",
-  "four-hours": "Next in ~4h",
-  "daily-midnight": "Midnight refresh",
-  "daily-morning": "8 AM refresh",
-};
-
 export function FrameCover({ frame, onClick }: FrameCoverProps) {
   const isMobile = useIsMobile();
   const shareCount = frame.sharedWith?.length ?? 0;
-  const scheduleLabel = scheduleLabelMap[frame.refreshSchedule];
+  const coverImage =
+    frame.activeImage ||
+    "linear-gradient(135deg, #0f172a 0%, #1e293b 35%, #334155 100%)";
+  const albumLabel = frame.album?.name || frame.currentAlbum || "No album selected";
 
-  const statusBadge = useMemo(
-    () =>
-      frame.status === "online" ? (
-        <Badge
-          size="sm"
-          leftSection={<IconWifi size={14} />}
-          color="green"
-          variant="light"
-        >
-          Online
-        </Badge>
-      ) : (
-        <Badge
-          size="sm"
-          leftSection={<IconWifiOff size={14} />}
-          color="gray"
-          variant="light"
-        >
-          Offline
-        </Badge>
-      ),
-    [frame.status]
-  );
+  const statusBadge = useMemo(() => {
+    switch (frame.status) {
+      case "online":
+        return (
+          <Badge size="sm" leftSection={<IconWifi size={14} />} color="green" variant="light">
+            Online
+          </Badge>
+        );
+      case "updating":
+      case "updating_frame":
+        return (
+          <Badge size="sm" color="blue" variant="light">
+            Updating frame…
+          </Badge>
+        );
+      case "pairing":
+        return (
+          <Badge size="sm" color="yellow" variant="light">
+            Pairing
+          </Badge>
+        );
+      case "error":
+        return (
+          <Badge size="sm" color="red" variant="light">
+            Error
+          </Badge>
+        );
+      default:
+        return (
+          <Badge size="sm" leftSection={<IconWifiOff size={14} />} color="gray" variant="light">
+            Offline
+          </Badge>
+        );
+    }
+  }, [frame.status]);
 
   return (
     <Card
@@ -64,7 +72,9 @@ export function FrameCover({ frame, onClick }: FrameCoverProps) {
           position: "relative",
           width: "100%",
           paddingBottom: "60%",
-          backgroundImage: `url(${frame.activeImage})`,
+          backgroundImage: coverImage.startsWith("linear-gradient")
+            ? coverImage
+            : `url(${coverImage})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -86,8 +96,7 @@ export function FrameCover({ frame, onClick }: FrameCoverProps) {
             justifyContent: "space-between",
           }}
         >
-          <Group justify="space-between" gap="xs">
-            {statusBadge}
+          <Group justify="flex-end" gap="xs">
             {shareCount > 0 && (
               <Tooltip label={`Shared with ${shareCount} ${shareCount === 1 ? "person" : "people"}`}>
                 <Badge
@@ -102,36 +111,25 @@ export function FrameCover({ frame, onClick }: FrameCoverProps) {
               </Tooltip>
             )}
           </Group>
-          <Stack gap={4}>
-            <Text fw={600} size="lg" lineClamp={1}>
-              {frame.name}
-            </Text>
-            <Text size="sm" c="gray.3" lineClamp={1}>
-              {frame.description || "No description yet"}
-            </Text>
-            <Group gap="xs">
-              <ThemeIcon size="sm" variant="light" color="gray" radius="xl">
-                <IconPhoto size={14} />
-              </ThemeIcon>
-              <Text size="sm">{frame.currentAlbum || "No album selected"}</Text>
-            </Group>
-          </Stack>
+          <Group justify="space-between" align="flex-end" gap="md">
+            <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+              <Text fw={600} size="lg" lineClamp={1}>
+                {frame.name}
+              </Text>
+              <Group gap="xs">
+                <ThemeIcon size="sm" variant="light" color="gray" radius="xl">
+                  <IconPhoto size={14} />
+                </ThemeIcon>
+                <Text size="sm" lineClamp={1}>{albumLabel}</Text>
+              </Group>
+            </Stack>
+            <Box style={{ alignSelf: "flex-end" }}>
+              {statusBadge}
+            </Box>
+          </Group>
         </Stack>
       </Box>
 
-      <Stack gap="xs" p="md">
-        <Group justify="space-between" gap="xs">
-          <Group gap={6}>
-            <IconClock size={16} color="var(--mantine-color-dimmed)" />
-            <Text size="sm" c="dimmed">
-              {scheduleLabel}
-            </Text>
-          </Group>
-          <Text size="xs" c="dimmed">
-            Tap to edit
-          </Text>
-        </Group>
-      </Stack>
     </Card>
   );
 }

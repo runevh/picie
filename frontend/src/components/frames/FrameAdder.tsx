@@ -1,4 +1,4 @@
-import { createContext, ReactElement, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, ReactElement, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "../../util/LayoutUtil";
 import {
   Modal,
@@ -8,6 +8,7 @@ import {
   Group,
   Stack,
   Text,
+  Paper,
   Badge,
   Checkbox,
   Select,
@@ -21,6 +22,7 @@ import {
 import { IconEPassport, IconLink, IconLock, IconQrcode } from "@tabler/icons-react";
 import { StatusLoader } from "../../misc/StatusLoader";
 import { useDeviceContext } from "../../contexts/DeviceContext";
+import { notifications } from "@mantine/notifications";
 
 type FrameAdderProps = {
   opened: boolean;
@@ -41,21 +43,84 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
   const [expiryTimestamp, setExpiryTimestamp] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [frameId, setFrameId] = useState<string | null>(null);
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [waitingForCode, setWaitingForCode] = useState(false);
+  const [pollingStatus, setPollingStatus] = useState<string | null>(null);
+  const sessionRef = useRef(0);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
 
   const isMobile = useIsMobile();
-  const { startPairing } = useDeviceContext();
+  const { startPairing, endClaimDevice, cancelPairing, getDeviceStatus } = useDeviceContext();
 
   const canGoNext = () => {
     if (active === 0) {
       return /^\d{6}$/.test(deviceCode); // exactly 6 digits
     }
     if (active === 1) {
+      if (waitingForCode) return false;
       return confirmationCode.trim().length > 0;
     }
     // Add other step validations here if needed
     return true;
   };
+
+  const resetWizard = () => {
+    sessionRef.current += 1;
+    setActive(0);
+    setLoading(false);
+    setLoadingContent(null);
+    setDeviceCode("");
+    setDeviceCodeError(null);
+    setConfirmationCode("");
+    setConfirmationCodeError(null);
+    setExpiryTimestamp(null);
+    setTimeLeft(0);
+    setFrameId(null);
+    setAttemptsLeft(null);
+    setWaitingForCode(false);
+    setPollingStatus(null);
+    setErrorBanner(null);
+  };
+
+  useEffect(() => {
+    if (!opened) {
+      resetWizard();
+      cancelPairing().catch(() => {});
+    }
+  }, [opened, cancelPairing]);
+
+  // Ensure pairing is cancelled if the component unmounts (e.g., navigation)
+  useEffect(() => {
+    return () => {
+      cancelPairing().catch(() => {});
+    };
+  }, [cancelPairing]);
+
+  useEffect(() => {
+    if (!waitingForCode || !deviceCode) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await getDeviceStatus(deviceCode);
+        if (res.success) {
+          const status = (res.data as any)?.data?.status || (res.data as any)?.status;
+          setPollingStatus(status);
+          if (status === "idle") {
+            setWaitingForCode(false);
+            setLoading(false);
+            setLoadingContent(null);
+          }
+        } else {
+          setPollingStatus(null);
+        }
+      } catch {
+        setPollingStatus(null);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [waitingForCode, deviceCode, getDeviceStatus]);
 
   const handleNext = async () => {
     if (!canGoNext()) {
@@ -65,42 +130,61 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
     }
 
     if (active === 0) {
+      const sessionToken = sessionRef.current;
       setLoading(true);
       // After step 1, show loading before moving to step 2
       setLoadingContent(<>Fetching device info...</>);
 
       const res = await startPairing(deviceCode);
       setLoading(false);
+      if (sessionToken !== sessionRef.current || !opened) {
+        return;
+      }
+
       if (res.success) {
         setActive((current) => current + 1);
+        setWaitingForCode(true);
+        setLoading(true);
+        setLoadingContent(<>Generating code...</>);
+        setDeviceCodeError(null);
       } else {
-        console.log(res.data);
-        setDeviceCodeError(res.data);
+        const message = typeof res.data === "string"
+          ? res.data
+          : (res.data as any)?.message || "Unable to start pairing";
+        setDeviceCodeError(message);
+        setErrorBanner(message);
       }
-      /*setLoadingContent(<>Preparing device...</>);
-      setTimeout(() => {
-        setLoading(false);
-        setActive((current) => current + 1); // go to step 2 after loading
-      }, 1000);
-    }, 1000);*/
-
-
-      setDeviceCodeError(null);
       setConfirmationCodeError(null);
-    };
-
-    if (active === 1) {
-      // Simulate API call to complete pairing
-      setLoading(true);
-      setLoadingContent(<>Finishing pairing...</>);
-      setTimeout(() => {
-        setLoading(false);
-        setFrameId("1234abc"); // replace with real frame ID if available
-        setActive((current) => current + 1); // move to Completed
-      }, 1000);
     }
 
+    if (active === 1) {
+      setLoading(true);
+      setLoadingContent(<>Finishing pairing...</>);
+      const res = await endClaimDevice(confirmationCode);
+      setLoading(false);
 
+      if (res.success) {
+        const payload = (res.data as any)?.data || res.data;
+        const id = payload?.id || payload?.uuid || null;
+        setFrameId(id);
+        setActive((current) => current + 1);
+        setConfirmationCodeError(null);
+        notifications.show({ title: "Frame linked", message: "Your frame was added successfully.", color: "green" });
+        window.dispatchEvent(new CustomEvent("frame-paired"));
+      } else {
+        const message = typeof res.data === "string"
+          ? res.data
+          : (res.data as any)?.message || "Unable to complete pairing";
+
+        const attemptsMatch = message.match(/(\d+)\s+attempt/);
+        if (attemptsMatch) {
+          setAttemptsLeft(parseInt(attemptsMatch[1], 10));
+        }
+
+        setConfirmationCodeError(message);
+        setErrorBanner(message);
+      }
+    }
   }
 
   useEffect(() => {
@@ -128,6 +212,23 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
   const Content = (
     <>
       <Stack p="xl">
+        {errorBanner && (
+          <Paper withBorder radius="md" p="sm" bg="red.0" c="red.8" style={{ position: "relative" }}>
+            <Stack gap={4} w="100%">
+              <Text fw={600}>Pairing error</Text>
+              <Text size="sm">{errorBanner}</Text>
+            </Stack>
+            <Button
+              variant="subtle"
+              color="red"
+              size="compact-xs"
+              onClick={() => setErrorBanner(null)}
+              style={{ position: "absolute", top: 4, right: 6, paddingInline: 8, height: 34, fontSize: 24 }}
+            >
+              ×
+            </Button>
+          </Paper>
+        )}
         <Flex
           direction="column"
           align="center"
@@ -138,7 +239,19 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
             <Stepper.Step icon={<IconEPassport size={32} />}>
               <Center w="100%" mt="md">
                 {loading ? (
-                  <StatusLoader>{loadingContent}</StatusLoader>
+                  <Stack gap="md" align="center">
+                    <StatusLoader>{loadingContent}</StatusLoader>
+                    <Button
+                      variant="default"
+                      onClick={async () => {
+                        await cancelPairing();
+                        onClose();
+                      }}
+                      w="50%"
+                    >
+                      Cancel
+                    </Button>
+                  </Stack>
                 ) : (
 
                   <Stack align="center">
@@ -163,7 +276,19 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
 
             <Stepper.Step icon={<IconLink size={32} />}>
               {loading ? (
-                <StatusLoader>{loadingContent}</StatusLoader>
+                <Stack gap="md" align="center">
+                  <StatusLoader>{loadingContent}</StatusLoader>
+                  <Button
+                    variant="default"
+                    onClick={async () => {
+                      await cancelPairing();
+                      onClose();
+                    }}
+                    w="50%"
+                  >
+                    Cancel
+                  </Button>
+                </Stack>
               ) : (
                 <Center w="100%" mt="md">
                   <Stack align="center">
@@ -181,6 +306,11 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                       gap="md"
                       radius="md"
                     />
+                    {attemptsLeft !== null && (
+                      <Text size="sm" c="dimmed">
+                        {attemptsLeft} attempt{attemptsLeft === 1 ? "" : "s"} remaining
+                      </Text>
+                    )}
                     {expiryTimestamp && (
                       <Text size="sm" c="dimmed" mt="sm">
                         You have {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
@@ -217,22 +347,38 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
         </Flex>
 
         {/* Keep buttons outside Flex so they stay at the bottom */}
-        <Flex mt="xl" gap="sm">
-          <Button
-            variant="default"
-            onClick={onClose}
-            w="50%"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleNext}
-            disabled={!canGoNext()}
-            w="50%"
-          >
-            {active === 2 ? "Finish" : "Next"}
-          </Button>
-        </Flex>
+        {!loading && (
+          <Flex mt="xl" gap="sm">
+            {active < 2 ? (
+              <>
+                <Button
+                  variant="default"
+                  onClick={async () => {
+                    await cancelPairing();
+                    onClose();
+                  }}
+                  w="50%"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleNext}
+                  disabled={!canGoNext()}
+                  w="50%"
+                >
+                  Next
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={onClose}
+                w="100%"
+              >
+                Finish
+              </Button>
+            )}
+          </Flex>
+        )}
       </Stack>
     </>
   );

@@ -8,7 +8,7 @@ const sequelize = process.env.NODE_ENV !== 'test' ? (new Sequelize(
     {
         host: 'db',
         dialect: 'postgres',
-        logging: true
+        logging: false
     })) : new Sequelize({ // Use sqlite for local testing
         dialect: 'sqlite',
         storage: ':memory:',

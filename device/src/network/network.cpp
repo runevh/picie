@@ -112,6 +112,11 @@ void register_handler(uint8_t messageCode, MessageHandler handler) {
     handlers[messageCode] = handler;
 }
 
+bool send_status(DeviceStatus status) {
+    Serial.println("Sending status");
+    return send_message(static_cast<uint8_t>(status), nullptr, 0);
+}
+
 void processIncomingMessages() {
     while (client.available() > 0) {
         uint8_t messageCode = client.read();
@@ -127,7 +132,7 @@ void processIncomingMessages() {
 bool wait_for_incoming_data(size_t size, unsigned long timeoutMs) {
     unsigned long start = millis();
     while ((millis() - start) < timeoutMs) {
-        if (client.available() >= size) {
+        if (static_cast<size_t>(client.available()) >= size) {
             return true;
         }
         delay(10);
@@ -137,7 +142,6 @@ bool wait_for_incoming_data(size_t size, unsigned long timeoutMs) {
 
 size_t read_buffer(uint8_t* buffer, size_t max_len) {
     size_t bytesRead = 0;
-    unsigned long start = millis();
 
     while (bytesRead < max_len) {
         if (client.available() <= 0) {

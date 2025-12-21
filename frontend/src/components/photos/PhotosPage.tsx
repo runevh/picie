@@ -1,15 +1,51 @@
-import { Box, Button, Checkbox, Flex, Group, Popover, Select, Stack, Text, TextInput, Title, Paper, ThemeIcon } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Button,
+  Checkbox,
+  Divider,
+  Flex,
+  Group,
+  Paper,
+  Popover,
+  Select,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  ThemeIcon,
+  Title,
+  useComputedColorScheme,
+} from "@mantine/core";
 import { useIsMobile } from "../../util/LayoutUtil";
 import { AlbumCover } from "./AlbumCover";
 import { useDisclosure } from "@mantine/hooks";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { IconFilter, IconPhoto, IconPlus, IconUsers, IconSparkles } from "@tabler/icons-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { IconFilter, IconPhoto, IconPlus, IconSparkles, IconRadar, IconFolder } from "@tabler/icons-react";
 import { useAlbumEditor } from "./AlbumEditor";
 import { usePhoto } from "../../contexts/PhotoContext";
 import { Album } from "../../types/Photos";
 
 export function PhotosPage() {
   const isMobile = useIsMobile();
+  const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
+  const isDark = computedColorScheme === "dark";
+  const surface = isDark ? "rgba(20, 24, 35, 0.9)" : "rgba(255,255,255,0.92)";
+  const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.4)";
+  const shellBackground = isDark
+    ? "radial-gradient(circle at 12% 20%, rgba(52,125,244,0.12), transparent 30%)," +
+      "radial-gradient(circle at 82% 10%, rgba(132,94,247,0.14), transparent 26%)," +
+      "linear-gradient(145deg, #0f1629 0%, #0b1221 100%)"
+    : "radial-gradient(circle at 12% 20%, rgba(52,125,244,0.16), transparent 30%)," +
+      "radial-gradient(circle at 82% 10%, rgba(132,94,247,0.12), transparent 26%)," +
+      "linear-gradient(145deg, #f8fbff 0%, #eef2ff 100%)";
+  const heroOverlay = isDark
+    ? "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
+      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.14), transparent 28%)"
+    : "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
+      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.12), transparent 28%)";
+  const liftShadow = isDark ? "0 18px 60px -40px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.4)";
+  const cardBaseShadow = isDark ? "0 16px 50px -50px rgba(0,0,0,0.65)" : "none";
   const [opened, { toggle, close }] = useDisclosure(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("lastModified");
@@ -115,7 +151,7 @@ export function PhotosPage() {
     [albums]
   );
 
-  const stats = useMemo(
+const stats = useMemo(
     () => [
       {
         label: "Albums",
@@ -136,176 +172,230 @@ export function PhotosPage() {
   const newAlbumSize = 163 * scale;
   
   return (
-    <Stack gap="lg" p="md">
-      <Flex justify="space-between" align="flex-start" wrap="wrap" gap="md">
-        <Box>
-          <Title order={2}>My Albums</Title>
-          <Text c="dimmed" size="sm">
-            Keep your favorite moments organized, invite collaborators, and send the best ones straight to your frames.
-          </Text>
-        </Box>
-        <Group gap="sm" mt={isMobile ? "sm" : 0}>
-          <Button
-            px={12}
-            variant="light"
-            title="Create Album"
-            onClick={handleNewAlbum}
-            leftSection={<IconPlus size={18} />}
-          >
-            New album
-          </Button>
-          <Popover width={250} position="bottom-end" withArrow shadow="md" opened={opened}>
-            <Popover.Target>
-              <Button
-                leftSection={<IconFilter size={16} />}
-                variant="outline"
-                onClick={toggle}
-              >
-                Filters
-              </Button>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Stack>
-                <TextInput
-                  label="Search by name"
-                  placeholder="Album title..."
-                  value={search}
-                  onChange={(e) => setSearch(e.currentTarget.value)}
-                />
-
-                <Select
-                  label="Sort by"
-                  data={[
-                    { label: "Last modified", value: "lastModified" },
-                    { label: "Date created", value: "dateCreated" },
-                    { label: "Name (A-Z)", value: "name" },
-                  ]}
-                  value={sortBy}
-                  onChange={(value) => setSortBy(value || "lastModified")}
-                />
-
-                <Checkbox
-                  label="Shared only"
-                  checked={sharedOnly}
-                  onChange={(e) => setSharedOnly(e.currentTarget.checked)}
-                />
-
-                <Group justify="space-between" mt="xs">
-                  <Button variant="light" size="xs" onClick={() => {
-                    setSearch("");
-                    setSortBy("lastModified");
-                    setSharedOnly(false);
-                    close();
-                  }}>
-                    Clear
-                  </Button>
-                  <Button size="xs" onClick={close}>
-                    Apply
-                  </Button>
-                </Group>
-              </Stack>
-            </Popover.Dropdown>
-          </Popover>
-        </Group>
-      </Flex>
-      <Stack gap="md" mb="xl">
-        <Group gap="md" wrap="wrap">
-          {stats.map(({ label, value, description, icon }) => (
-            <StatCard key={label} label={label} value={value} description={description} icon={icon} />
-          ))}
-        </Group>
-      </Stack>
-      <Paper withBorder radius="lg" p="md">
-        <Box
-          ref={containerRef}
+    <Box
+      p={{ base: "md", md: "xl" }}
+      style={{ minHeight: "100%", background: shellBackground }}
+    >
+      <Stack gap="xl">
+        <Paper
+          radius="xl"
+          p="xl"
+          withBorder
           style={{
-            display: "flex",
-            flexWrap: "wrap",
-            width: "100%",
-            margin: -8,
+            position: "relative",
+            overflow: "hidden",
+            background: surface,
+            borderColor: surfaceBorder,
+            boxShadow: isDark ? "0 30px 120px -70px rgba(0,0,0,0.75)" : "0 30px 120px -60px rgba(15, 23, 42, 0.5)",
+            backdropFilter: "blur(10px)",
           }}
         >
-          {albums.map((album) => (
-            <Box
-              key={album.id}
-              style={{
-                width: 163 * scale,
-                height: 163 * scale,
-                margin: 8,
-              }}
-              onClick={() => openForEdit(album)}
-            >
-              <AlbumCover album={album} size={163 * scale} />
-            </Box>
-          ))}
-
-          <Paper
-            withBorder
-            radius="md"
+          <Box
             style={{
-              height: newAlbumSize,
-              width: newAlbumSize,
-              margin: 8,
-              borderStyle: "dashed",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              cursor: "pointer",
+              position: "absolute",
+              inset: 0,
+              background: heroOverlay,
+              pointerEvents: "none",
             }}
-            onClick={handleNewAlbum}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                handleNewAlbum();
-              }
+          />
+          <Group align="flex-start" justify="space-between" wrap="wrap" gap="xl" style={{ position: "relative", zIndex: 1 }}>
+            <Stack gap="md" maw={620}>
+              <Badge variant="light" color="blue" size="lg" radius="md" leftSection={<IconRadar size={16} />}>
+                Library
+              </Badge>
+              <Title order={1} size="h2" lh={1.2}>
+                My Albums
+              </Title>
+              <Text c="dimmed" size="sm">
+                Keep your favorite moments organized, invite collaborators, and send the best ones straight to your frames.
+              </Text>
+              <Group gap="md" wrap="wrap">
+                <Button
+                  px={12}
+                  variant="filled"
+                  title="Create Album"
+                  onClick={handleNewAlbum}
+                  leftSection={<IconPlus size={18} />}
+                >
+                  New album
+                </Button>
+                <Button
+                  variant="default"
+                  leftSection={<IconFilter size={16} />}
+                  onClick={toggle}
+                >
+                  Filters
+                </Button>
+              </Group>
+              <Group gap="sm" wrap="wrap">
+                <Badge variant="light" color="blue">
+                  {albums.length} albums
+                </Badge>
+                <Badge variant="light" color="teal">
+                  {totalPhotos} photos
+                </Badge>
+              </Group>
+            </Stack>
+
+            <Paper
+              withBorder
+              radius="lg"
+              p="md"
+              style={{
+                minWidth: 260,
+                background: surface,
+                borderColor: surfaceBorder,
+                boxShadow: isDark ? "0 16px 50px -50px rgba(0,0,0,0.7)" : "0 16px 50px -40px rgba(15, 23, 42, 0.5)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <Stack gap="sm">
+                <Group gap="xs">
+                  <ThemeIcon variant="light" color="indigo" radius="xl">
+                    <IconFolder size={16} />
+                  </ThemeIcon>
+                  <Text fw={600}>Library pulse</Text>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Snapshot of what's inside your library.
+                </Text>
+                {stats.map(({ label, value }) => (
+                  <Stack key={label} gap={6}>
+                    <Group justify="space-between">
+                      <Text size="xs" c="dimmed">
+                        {label}
+                      </Text>
+                      <Text size="xs" fw={600}>
+                        {value}
+                      </Text>
+                    </Group>
+                    <Divider opacity={0.1} />
+                  </Stack>
+                ))}
+              </Stack>
+            </Paper>
+          </Group>
+        </Paper>
+
+        <Paper
+          withBorder
+          radius="lg"
+          p="lg"
+          style={{
+            background: surface,
+            borderColor: surfaceBorder,
+            boxShadow: isDark ? "0 22px 80px -70px rgba(0,0,0,0.7)" : "0 22px 80px -60px rgba(15, 23, 42, 0.4)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <Stack gap="md">
+            <Group align="baseline" justify="space-between" wrap="wrap">
+              <Title order={3} size="h4">
+                Overview
+              </Title>
+              <Text size="sm" c="dimmed">
+                Quick stats for your albums.
+              </Text>
+            </Group>
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+              {stats.map(({ label, value, description, icon }) => (
+                <Paper
+                  key={label}
+                  radius="md"
+                  withBorder
+                  p="md"
+                  style={{
+                    background:
+                      label === "Albums"
+                        ? isDark
+                          ? "linear-gradient(145deg, rgba(52,125,244,0.18), rgba(20,24,35,0.9))"
+                          : "linear-gradient(145deg, rgba(52,125,244,0.12), #fff)"
+                        : surface,
+                    borderColor: surfaceBorder,
+                  }}
+                >
+                  <Stack gap={6}>
+                    <Group gap="xs">
+                      <ThemeIcon variant="light" color="blue" size="sm">
+                        {icon}
+                      </ThemeIcon>
+                      <Text fw={600}>{label}</Text>
+                    </Group>
+                    <Text fw={600} size="xl">
+                      {value}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {description}
+                    </Text>
+                  </Stack>
+                </Paper>
+              ))}
+            </SimpleGrid>
+          </Stack>
+        </Paper>
+
+        <Paper withBorder radius="lg" p="md" style={{ background: surface, borderColor: surfaceBorder, boxShadow: cardBaseShadow }}>
+          <Box
+            ref={containerRef}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              width: "100%",
+              margin: -8,
             }}
           >
-            <ThemeIcon size="xl" variant="light" radius="xl">
-              <IconPlus size={20} />
-            </ThemeIcon>
-            <Stack gap={0} align="center">
-              <Text fw={600}>New album</Text>
-              <Text size="xs" c="dimmed">
-                Start from scratch
-              </Text>
-            </Stack>
-          </Paper>
-        </Box>
-      </Paper>
-    </Stack>
-  );
-}
+            {albums.map((album) => (
+              <Box
+                key={album.id}
+                style={{
+                  width: 163 * scale,
+                  height: 163 * scale,
+                  margin: 8,
+                }}
+                onClick={() => openForEdit(album)}
+              >
+                <AlbumCover album={album} size={163 * scale} />
+              </Box>
+            ))}
 
-type StatCardProps = {
-  label: string;
-  value: number;
-  description: string;
-  icon: ReactNode;
-};
-
-function StatCard({ label, value, description, icon }: StatCardProps) {
-  return (
-    <Paper withBorder radius="md" p="md" style={{ minWidth: 160, flex: "1 1 160px" }}>
-      <Group gap="sm">
-        <ThemeIcon variant="light" radius="md" color="gray">
-          {icon}
-        </ThemeIcon>
-        <Stack gap={2} style={{ minWidth: 0 }}>
-          <Text size="xs" c="dimmed" tt="uppercase">
-            {label}
-          </Text>
-          <Text fw={600} size="lg">
-            {value}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {description}
-          </Text>
-        </Stack>
-      </Group>
-    </Paper>
+            <Paper
+              withBorder
+              radius="md"
+              style={{
+                height: newAlbumSize,
+                width: newAlbumSize,
+                margin: 8,
+                borderStyle: "dashed",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                cursor: "pointer",
+              }}
+              onClick={handleNewAlbum}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleNewAlbum();
+                }
+              }}
+            >
+              <ThemeIcon size="xl" variant="light" radius="xl">
+                <IconPlus size={20} />
+              </ThemeIcon>
+              <Stack gap={0} align="center">
+                <Text fw={600}>New album</Text>
+                <Text size="xs" c="dimmed">
+                  Start from scratch
+                </Text>
+              </Stack>
+            </Paper>
+          </Box>
+        </Paper>
+      </Stack>
+    </Box>
   );
 }

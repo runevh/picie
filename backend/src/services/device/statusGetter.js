@@ -5,7 +5,6 @@ const getDeviceData = async (client) => {
     client.send([0x10]); // Ask for image data
     const responseLength = 1 + 4 // int8 + uint32
     
-
     console.log(rawBytes.length);
 
     while (sentBytes < responseLength) {

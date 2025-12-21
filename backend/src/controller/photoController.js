@@ -52,10 +52,20 @@ const savePhoto = async (req, res) => {
 
         const base64WithoutPrefix = req.body.data.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64WithoutPrefix, 'base64');
+        console.log("[photo] received new image", {
+            userId: user,
+            albumId,
+            photoId: photo.id,
+            sizeBytes: buffer.length,
+        });
         const encryptedImage = encryptBuffer(buffer);
     
         const filePath = path.join(__dirname, '..', '..', 'photos', `${photo.id}`);
-        console.log(filePath);
+        console.log("[photo] writing encrypted image assets", {
+            photoId: photo.id,
+            pngPath: `${filePath}.png`,
+            dataPath: `${filePath}.data`,
+        });
         fs.writeFileSync(filePath + ".png", encryptedImage);
 
         const ditheredBytes = await dither(buffer);

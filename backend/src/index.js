@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { connectDB } = require('./config/db');
 const { register, login, fetchUser, logout } = require('../src/controller/userController');
-const { createDevice, getAllDevices, startPairing, getUserDevices } = require('../src/controller/deviceController')
+const { createDevice, getAllDevices, startPairing, completePairing, cancelPairing, getUserDevices, deleteDevice, unlinkDevice, rebootDevice, getDeviceLogs, getDeviceStatus, updateDeviceSettings } = require('../src/controller/deviceController')
 const { auth, admin } = require('../src/middleware/auth');
 const http = require('http');
 const { savePhoto, getPhoto, getAlbums, savePhotoCollage, createAlbum, deletePhotos, deleteAlbum } = require('./controller/photoController');
@@ -10,6 +10,7 @@ const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const tcpServer = require('./services/tcpServer');
 const generateNumberImage = require("./services/photo/pinImageGenerator");
+const { startUpdateScheduler } = require("./schedules/updateScheduler");
 
 const { sendImage } = require("./services/photo/imageSender")
 
@@ -53,6 +54,14 @@ router.post('/device/create', auth, admin, createDevice);
 router.get('/device/all/admin', auth, admin, getAllDevices);
 router.get('/device/all', auth, getUserDevices);
 router.post('/device/pairing/start', auth, startPairing);
+router.post('/device/claim/end', auth, completePairing);
+router.post('/device/pairing/cancel', auth, cancelPairing);
+router.get('/device/status', auth, getDeviceStatus);
+router.post('/device/unlink', auth, unlinkDevice);
+router.post('/device/delete', auth, admin, deleteDevice);
+router.post('/device/reboot', auth, admin, rebootDevice);
+router.post('/device/logs', auth, admin, getDeviceLogs);
+router.post('/device/update', auth, updateDeviceSettings);
 router.post('/device/set', auth, admin, (req, res) => {
   const firstEntry = tcpServer.getConnectedDevices().entries().next().value;
   const [, client] = firstEntry; // destructure to get the client instance
@@ -68,6 +77,9 @@ generateNumberImage("0000", './number.png').catch(console.error);
 if (process.env.NODE_ENV !== "test") {
   app.listen(port, () => console.log("[backend]: Application Started on", port));
 }
+
+// Start background scheduler to decide when images should update.
+startUpdateScheduler(tcpServer);
 
 // Poll loop
 /*setInterval(() => {

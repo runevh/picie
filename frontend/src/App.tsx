@@ -1,7 +1,10 @@
 import './App.css'
-import { MantineProvider } from '@mantine/core';
+import { MantineProvider, localStorageColorSchemeManager } from '@mantine/core';
 import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 import '@mantine/carousel/styles.css';
+import '@mantine/notifications/styles.css';
+import { Notifications } from '@mantine/notifications';
 import { AuthProvider } from './contexts/UserContext';
 import { DeviceProvider } from './contexts/DeviceContext';
 import { AppRouter, testRoutes } from './components/router/AppRouter';
@@ -11,9 +14,19 @@ import { FrameAdderProvider } from './components/frames/FrameAdder';
 import { PhotoUploaderProvider } from './components/photos/PhotoUploader';
 import { PhotoProvider } from './contexts/PhotoContext';
 
+const colorSchemeManager = localStorageColorSchemeManager({ key: "picie-color-scheme" });
+
 function App() {
   return (
-    <MantineProvider defaultColorScheme='light'>
+    <MantineProvider
+      defaultColorScheme="auto"
+      colorSchemeManager={colorSchemeManager}
+      withCssVariables
+      theme={{
+        primaryShade: { light: 6, dark: 5 },
+      }}
+    >
+      <Notifications position="top-right" />
       <BrowserRouter>
         <AuthProvider>
           <PhotoProvider>

@@ -24,6 +24,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import { useDeviceContext } from "../../contexts/DeviceContext";
+import { notifications } from "@mantine/notifications";
 
 type FrameRecord = {
   id: string;
@@ -31,43 +32,20 @@ type FrameRecord = {
   isOnline?: boolean;
   lastSeen?: string | Date | null;
   softwareVersion?: string;
+  name?: string | null;
   owner?: {
     name?: string | null;
     email?: string | null;
   } | null;
 };
 
-const MOCK_FRAMES: FrameRecord[] = [
-  {
-    id: "120045",
-    status: "online",
-    lastSeen: new Date().toISOString(),
-    softwareVersion: "1.4.0",
-    owner: { name: "Alex Johnson", email: "alex@example.com" },
-  },
-  {
-    id: "883210",
-    status: "offline",
-    lastSeen: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    softwareVersion: "1.3.5",
-    owner: null,
-  },
-  {
-    id: "550931",
-    status: "online",
-    lastSeen: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    softwareVersion: "1.5.1-beta",
-    owner: { name: "Jamie Park", email: "jamie@example.com" },
-  },
-];
-
 const normalizeFrames = (payload: unknown): FrameRecord[] => {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload as FrameRecord[];
-  if (typeof payload === "object" && payload !== null) {
-    const maybeDevices = (payload as { devices?: unknown }).devices;
-    if (Array.isArray(maybeDevices)) return maybeDevices as FrameRecord[];
-  }
+  const data =
+    (payload as { devices?: unknown; data?: unknown })?.data ??
+    (payload as { devices?: unknown })?.devices ??
+    payload;
+
+  if (Array.isArray(data)) return data as FrameRecord[];
   return [];
 };
 
@@ -82,6 +60,7 @@ export function AdminPage() {
 
   const [frames, setFrames] = useState<FrameRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [rebootingId, setRebootingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -91,34 +70,63 @@ export function AdminPage() {
   const [logsContent, setLogsContent] = useState("");
   const [logsFrame, setLogsFrame] = useState<FrameRecord | null>(null);
 
-  const loadFrames = useCallback(async () => {
-    setLoading(true);
+  const notifyFailure = (title: string, message?: string) => {
+    notifications.show({
+      title,
+      message: message ?? "Something went wrong. Please try again.",
+      color: "red",
+    });
+  };
+
+  const isSuccess = (response: { success: boolean; data?: any }) => {
+    if (!response) return false;
+    if (!response.success) return false;
+    if (typeof response.data === "object" && response.data !== null && "success" in response.data) {
+      return Boolean((response.data as { success?: boolean }).success);
+    }
+    return true;
+  };
+
+  const loadFrames = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? false;
+      if (!silent) setLoading(true);
+      else setRefreshing(true);
     try {
       const response = await getAllDevices();
-      if (response.success) {
-        const parsed = normalizeFrames(response.data);
-        setFrames(parsed.length > 0 ? parsed : MOCK_FRAMES);
-      } else {
-        setFrames(MOCK_FRAMES);
-      }
+      const payload = (response.data as { data?: unknown })?.data ?? response.data;
+      const parsed = normalizeFrames(payload);
+      setFrames(parsed);
     } catch (error) {
-      console.warn("Failed to load frames, showing mock data", error);
-      setFrames(MOCK_FRAMES);
+      console.warn("Failed to load frames", error);
+      setFrames([]);
     } finally {
-      setLoading(false);
+        if (!silent) setLoading(false);
+        setRefreshing(false);
     }
-  }, [getAllDevices]);
+    },
+    [getAllDevices]
+  );
 
   useEffect(() => {
     loadFrames();
+  }, [loadFrames]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadFrames({ silent: true });
+    }, 5000);
+    return () => clearInterval(interval);
   }, [loadFrames]);
 
   const handleCreateFrame = async () => {
     setCreating(true);
     try {
       const response = await createDevice();
-      if (response.success) {
+      if (isSuccess(response)) {
         await loadFrames();
+      } else {
+        notifyFailure("Failed to create frame", String(response?.data ?? ""));
       }
     } finally {
       setCreating(false);
@@ -128,7 +136,10 @@ export function AdminPage() {
   const handleRebootFrame = async (frame: FrameRecord) => {
     setRebootingId(frame.id);
     try {
-      await rebootDevice(frame.id);
+      const response = await rebootDevice(frame.id);
+      if (!isSuccess(response)) {
+        notifyFailure("Failed to reboot frame", String(response?.data ?? ""));
+      }
     } finally {
       setRebootingId(null);
     }
@@ -139,8 +150,10 @@ export function AdminPage() {
     setDeletingId(deleteModalFrame.id);
     try {
       const response = await deleteDevice(deleteModalFrame.id);
-      if (response.success) {
+      if (isSuccess(response)) {
         setFrames((prev) => prev.filter((frame) => frame.id !== deleteModalFrame.id));
+      } else {
+        notifyFailure("Failed to delete frame", String(response?.data ?? ""));
       }
     } finally {
       setDeletingId(null);
@@ -155,13 +168,15 @@ export function AdminPage() {
     setLogsLoading(true);
     try {
       const response = await fetchDeviceLogs(frame.id);
-      if (response.success) {
+      if (isSuccess(response)) {
         const logs =
           (response.data as { logs?: string })?.logs ??
+          (response.data as { data?: { logs?: string } })?.data?.logs ??
           JSON.stringify(response.data, null, 2);
         setLogsContent(logs);
       } else {
         setLogsContent("Unable to load logs for this frame.");
+        notifyFailure("Failed to load logs", String(response?.data ?? ""));
       }
     } finally {
       setLogsLoading(false);
@@ -239,7 +254,7 @@ export function AdminPage() {
             variant="light"
             leftSection={<IconRefresh size={16} />}
             onClick={loadFrames}
-            disabled={loading}
+            disabled={loading || refreshing}
           >
             Refresh
           </Button>

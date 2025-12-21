@@ -2,6 +2,12 @@
 #include <user_interface.h>
 #include <network/network.h>
 
+static volatile bool g_cancel_transfer = false;
+
+void request_cancel_transfer() {
+    g_cancel_transfer = true;
+}
+
 void my_byte_handler(uint8_t byte)
 {
     display.sendData(byte);
@@ -9,6 +15,9 @@ void my_byte_handler(uint8_t byte)
 
 void handle_incoming_image(const uint8_t *data, size_t message_length)
 {
+    g_cancel_transfer = false;
+    send_status(STATUS_UPDATING_IMAGE);
+
     display.init();
     display.startImageTransfer();
 
@@ -25,7 +34,7 @@ void handle_incoming_image(const uint8_t *data, size_t message_length)
         {
             Serial.println("Timeout waiting for incoming data");
             display.sleep();
-            //Send cancel byte
+            send_status(STATUS_ERROR);
             return;
         }
 
@@ -36,7 +45,10 @@ void handle_incoming_image(const uint8_t *data, size_t message_length)
     }
 
     display.refresh();
+    display.waitForBusyHigh();
     display.sleep();
+
+    send_status(STATUS_IDLE);
 }
 
 uint32_t calculate_transfer_chunk_size(size_t data_set)

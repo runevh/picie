@@ -2,7 +2,7 @@ const sharp = require('sharp');
 
 async function generateNumberImage(n) {
   const width = 600;
-  const height = 488;
+  const height = 448;
 
   const svgImage = `
     <svg width="${width}" height="${height}">

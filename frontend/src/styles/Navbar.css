@@ -2,6 +2,7 @@
   height: 50px;
   min-width: 50px;
   border-radius: var(--mantine-radius-md);
+  color: inherit;
   
   .inner-container {
     display: flex;

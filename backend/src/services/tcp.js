@@ -3,6 +3,7 @@ const EventEmitter = require('events');
 const Device = require('../models/device');
 const bcrypt = require('bcryptjs');
 const { sendImage } = require("./photo/imageSender")
+const { getOrCreateDeviceState, markDeviceUpdateSent } = require('../schedules/updateScheduler');
 
 const AUTH_MSG_LENGTH = 98 // UUID(36)+ key(62)
 
@@ -24,16 +25,20 @@ class TcpServer extends EventEmitter {
     getConnectedDevices() {
         return this.devices;
     }
-
 }
 
 class TcpClient {
-    constructor(socket, devices) {
-        this.socket = socket;
-        this.uuid = null;
-        this.authenticated = false;
-        this.buffer = Buffer.alloc(0);
-        this.pendingResponses = new Map();
+  constructor(socket, devices) {
+    this.socket = socket;
+    this.uuid = null;
+    this.authenticated = false;
+    this.buffer = Buffer.alloc(0);
+    this.pendingResponses = new Map();
+    this.lastSeenUpdate = 0;
+    this.status = 'idle';
+    this.statusWaiters = [];
+    this.pendingTask = null;
+    this.processingTask = false;
 
         this.authTimeout = setTimeout(() => {
             console.log('Auth timeout — closing connection');
@@ -43,6 +48,11 @@ class TcpClient {
         this.socket.on('data', data => this.onData(data));
         this.socket.on('error', err => {
             console.error('Socket error:', err);
+        });
+        this.socket.on('close', () => {
+            if (this.uuid) {
+                devices.delete(this.uuid);
+            }
         });
         this.devices = devices
     }
@@ -77,7 +87,7 @@ class TcpClient {
     async handleAuth(authString) {
         if (authString.length != AUTH_MSG_LENGTH) { //Account for the \r at the end
             console.log('Message not right length');
-            socket.destroy();
+            this.socket.destroy();
             return;
         };
 
@@ -85,21 +95,21 @@ class TcpClient {
         const secret = authString.substring(36, AUTH_MSG_LENGTH);
 
         if (!recvUuid || !secret) {
-            socket.destroy();
+            this.socket.destroy();
             return;
         }
 
         const device = await Device.findOne({ where: { uuid: recvUuid } });
         if (!device) {
             console.log('Device not found');
-            socket.destroy();
+            this.socket.destroy();
             return;
         }
 
         const secretCorrect = await bcrypt.compare(secret, device.secret);
 
         if (!secretCorrect) {
-            socket.destroy();
+            this.socket.destroy();
             return;
         }
 
@@ -109,25 +119,106 @@ class TcpClient {
         this.uuid = recvUuid;
         this.devices.set(this.uuid, this);
         this.socket.write(Buffer.from([0x10])); // Send AUTH_OK
-
-
+        this.updateLastSeen();
     }
 
     handleData(data) {
-        const [code, ...rest] = data;
+        console.log("Received new data");
+    const [code, ...rest] = data;
+
+    if (code >= 0x40 && code <= 0x4F) {
+      const previousStatus = this.status;
+      const nextStatus = this.mapStatusCode(code);
+      console.log(`Device ${this.uuid || 'unknown'} status code 0x${code.toString(16)}: ${previousStatus} -> ${nextStatus}`);
+      this.status = nextStatus;
+      this.updateLastSeen();
+      if (this.status === 'idle') {
+        this.flushStatusWaiters();
+        this.processTaskQueue();
+      }
+      return;
+    }
+
         const handler = this.pendingResponses?.get(code);
         if (handler) {
             handler(Buffer.from(rest));
         } else {
             console.warn(`No handler found for response code 0x${code.toString(16)}`);
         }
-    }
+    this.updateLastSeen();
+  }
 
-    send(data) {
-        if (this.authenticated && this.socket.writable) {
-            this.socket.write(Buffer.from(data));
-        } else {
-            console.warn(`Attempt to send to unauthenticated or closed socket: ${this.uuid}`);
+  waitUntilIdle() {
+    if (this.status === 'idle') return Promise.resolve();
+    return new Promise((resolve) => {
+      this.statusWaiters.push(resolve);
+    });
+  }
+
+  flushStatusWaiters() {
+    const waiters = [...this.statusWaiters];
+    this.statusWaiters = [];
+    waiters.forEach((resolve) => resolve());
+  }
+
+  enqueueTask(taskFn, label = 'task') {
+    // Keep only the latest queued task; override any previous pending one.
+    const promise = new Promise((resolve, reject) => {
+      this.pendingTask = { taskFn, resolve, reject, label };
+    });
+    this.processTaskQueue();
+    return promise;
+  }
+
+  async processTaskQueue() {
+    if (this.processingTask) return;
+    this.processingTask = true;
+    while (this.pendingTask) {
+      // Wait until the device reports idle before choosing which task to run.
+      await this.waitUntilIdle();
+
+      // If a newer task arrived while we were waiting, drop the older one so the queue size stays at 1.
+      const current = this.pendingTask;
+      this.pendingTask = null;
+
+      // Skip sending if the device already shows the target image.
+      if (current?.label?.startsWith('send-image-') && this.uuid) {
+        const targetPhotoId = current.label.substring('send-image-'.length);
+        try {
+          const state = await getOrCreateDeviceState(this.uuid);
+          if (state?.currentPhotoId && String(state.currentPhotoId) === String(targetPhotoId)) {
+            console.log(`[tcp] skipping ${current.label} for device ${this.uuid}; image already active`);
+            // Still mark as sent to keep nextPhoto planning in sync.
+            await markDeviceUpdateSent(this.uuid, { currentPhotoId: targetPhotoId });
+            current.resolve(state);
+            continue;
+          }
+        } catch (err) {
+          console.warn(`[tcp] state check failed before ${current.label} for device ${this.uuid}`, err?.message || err);
+        }
+      }
+
+      try {
+        // If another task arrived after clearing pendingTask, process it next loop iteration.
+        const result = await current.taskFn();
+        current.resolve(result);
+      } catch (err) {
+        console.error(`[tcp] task "${current.label}" failed for device ${this.uuid}`, err);
+        current.reject(err);
+      }
+    }
+    this.processingTask = false;
+  }
+
+  hasPendingWork() {
+    return this.processingTask || Boolean(this.pendingTask) || (this.status && this.status !== 'idle');
+  }
+
+  send(data) {
+    if (this.authenticated && this.socket.writable) {
+      this.socket.write(Buffer.from(data));
+    } else {
+      console.warn(`Attempt to send to unauthenticated or closed socket: ${this.uuid}`);
         }
     }
 
@@ -146,9 +237,34 @@ class TcpClient {
                 reject(new Error(`Timeout waiting for response to code 0x${code.toString(16)}`));
             }, timeout);
         });
+    }
 
+    async updateLastSeen() {
+        if (!this.uuid) return;
 
+        const now = Date.now();
+        if (now - this.lastSeenUpdate < 15_000) return;
 
+        this.lastSeenUpdate = now;
+        try {
+            await Device.update(
+                { lastSeen: new Date() },
+                { where: { uuid: this.uuid } }
+            );
+        } catch (err) {
+            console.error(`Failed to update lastSeen for device ${this.uuid}:`, err);
+        }
+    }
+
+    mapStatusCode(code) {
+        switch (code) {
+            case 0x40: return 'idle';
+            case 0x41: return 'updating_image';
+            case 0x42: return 'pairing';
+            case 0x43: return 'updating_frame';
+            case 0x4F: return 'error';
+            default: return this.status || 'idle';
+        }
     }
 }
 

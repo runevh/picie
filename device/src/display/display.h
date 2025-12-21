@@ -19,8 +19,8 @@
 #define CLEAN       0x7 // 111
 
 #define DISPLAY_WIDTH 600
-#define DISPLAY_HEIGHT 488
-#define PIXELS_COUNT 146400
+#define DISPLAY_HEIGHT 448
+#define PIXELS_COUNT 134400
 
 class Display {
 public:

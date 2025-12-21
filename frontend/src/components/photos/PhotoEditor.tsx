@@ -62,8 +62,8 @@ export function PhotoEditor({ album, image, close, addPhoto }: PhotoEditorProps)
 
   const dimensions = useMemo(() => {
     const isHorizontal = orientation === 'horizontal';
-    const canvasWidth = isHorizontal ? 600 : 488;
-    const canvasHeight = isHorizontal ? 488 : 600;
+    const canvasWidth = isHorizontal ? 600 : 448;
+    const canvasHeight = isHorizontal ? 448 : 600;
 
     return {
       canvasWidth,
@@ -245,6 +245,7 @@ export function PhotoEditor({ album, image, close, addPhoto }: PhotoEditorProps)
                 const offsetMultiplier = dimensions.canvasWidth / dimensions.previewWidth;
                 const scaledWidth = img.width * imageScale * offsetMultiplier;
                 const scaledHeight = img.height * imageScale * offsetMultiplier;
+                // Preview translations are applied before scale in CSS (translate then scale), so keep raw offsets.
                 const canvasOffsetX = imagePosition.x * offsetMultiplier;
                 const canvasOffsetY = imagePosition.y * offsetMultiplier;
 
