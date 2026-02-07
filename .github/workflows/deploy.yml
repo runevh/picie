@@ -18,6 +18,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
+            mkdir -p ~/.ssh
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
             if [ ! -d /srv/picie/.git ]; then
               git clone git@github.com:runevh/picie.git /srv/picie
             fi
@@ -25,3 +27,4 @@ jobs:
             git fetch origin
             git reset --hard origin/main
             docker compose -f docker-compose.prod.yml up -d --build
+
