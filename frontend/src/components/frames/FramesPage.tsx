@@ -88,7 +88,7 @@ export function FramesPage() {
           const activeImage =
             (device as any).activeImage ||
             ((device as any).currentPhotoId
-              ? `${getApiBase()}api/photo/get/${(device as any).currentPhotoId}.png`
+              ? `${getApiBase()}photo/get/${(device as any).currentPhotoId}.png`
               : undefined);
           const albumIdRaw = (device as any).albumId ?? (device as any).album?.id;
           const currentAlbum = albumIdRaw === undefined || albumIdRaw === null ? null : String(albumIdRaw);

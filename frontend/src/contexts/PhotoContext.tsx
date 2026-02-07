@@ -51,7 +51,7 @@ export function PhotoProvider({ children }: { children: ReactNode }) {
       const photoId = res.data.id;
       const photo: Photo = {
         id: photoId,
-        url: `${getApiBase()}api/photo/get/${photoId}.png`,
+        url: `${getApiBase()}photo/get/${photoId}.png`,
       };
       setAlbums((prevAlbums) =>
         prevAlbums.map((album) =>

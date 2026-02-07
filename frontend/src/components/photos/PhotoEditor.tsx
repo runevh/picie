@@ -215,7 +215,7 @@ export function PhotoEditor({ album, image, close, addPhoto }: PhotoEditorProps)
                 const photoId = res.data.id as string;
                 addPhoto({
                     id: photoId,
-                    url: `${getApiBase()}api/photo/get/${photoId}.png`,
+                    url: `${getApiBase()}photo/get/${photoId}.png`,
                 });
             }
             setLoading(false);
