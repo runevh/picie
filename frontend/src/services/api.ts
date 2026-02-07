@@ -17,7 +17,7 @@ export interface ResponseBody {
 
 export const getRequest = async (endpoint: string, params = {}): Promise<ResponseBody> => {
     try {
-        const response = await api.get(`api/${endpoint}`, { params, withCredentials: true });
+        const response = await api.get(endpoint, { params, withCredentials: true });
         return {success: true, data: response.data};
     } catch (error) {
         return handleError(error);
@@ -30,7 +30,7 @@ export const postRequest = async (endpoint: string, data: any): Promise<Response
             ? {'Content-Type': 'application/form'} // Let the browser set the correct `Content-Type` for FormData
             : { 'Content-Type': 'application/json' };
 
-        const response = await api.post(`api/${endpoint}`, data, { headers });
+        const response = await api.post(endpoint, data, { headers });
         return { success: true, data: response.data };
     } catch (error) {
         return handleError(error);

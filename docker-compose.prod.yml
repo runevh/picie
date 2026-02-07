@@ -20,8 +20,8 @@ services:
     depends_on:
       - db
     ports:
-      - "7734:7734"
-      - "7735:7735"
+      - "127.0.0.1:7734:7734"
+      - "127.0.0.1:7735:7735"
     volumes:
       - ./backend/photos:/app/photos
 
@@ -29,7 +29,7 @@ services:
     build: ./frontend
     restart: always
     ports:
-      - "7733:80"
+      - "127.0.0.1:7733:80"
 
 volumes:
   pgdata:
