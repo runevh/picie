@@ -19,7 +19,7 @@ jobs:
           script: |
             set -e
             if [ ! -d /srv/picie/.git ]; then
-              git clone https://github.com/runevh/picie.git /srv/picie
+              git clone git@github.com:runevh/picie.git /srv/picie
             fi
             cd /srv/picie
             git fetch origin
