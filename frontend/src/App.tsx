@@ -1,5 +1,5 @@
 import './App.css'
-import { MantineProvider, localStorageColorSchemeManager } from '@mantine/core';
+import { MantineProvider } from '@mantine/core';
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/carousel/styles.css';
@@ -14,13 +14,11 @@ import { FrameAdderProvider } from './components/frames/FrameAdder';
 import { PhotoUploaderProvider } from './components/photos/PhotoUploader';
 import { PhotoProvider } from './contexts/PhotoContext';
 
-const colorSchemeManager = localStorageColorSchemeManager({ key: "picie-color-scheme" });
-
 function App() {
   return (
     <MantineProvider
-      defaultColorScheme="auto"
-      colorSchemeManager={colorSchemeManager}
+      defaultColorScheme="dark"
+      forceColorScheme="dark"
       withCssVariables
       theme={{
         primaryShade: { light: 6, dark: 5 },
