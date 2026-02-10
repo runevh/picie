@@ -29,6 +29,11 @@ type FrameAdderProps = {
   onClose: () => void;
 };
 
+const drawerSafeAreaStyles = {
+  content: { paddingTop: "var(--safe-area-top)" },
+  header: { paddingTop: "var(--safe-area-top)" },
+} as const;
+
 export function FrameAdder({ opened, onClose }: FrameAdderProps) {
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -393,6 +398,7 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
         padding="md"
         size="100%"
         zIndex={1000}
+        styles={drawerSafeAreaStyles}
       >
         {Content}
       </Drawer>

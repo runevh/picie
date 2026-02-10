@@ -15,6 +15,11 @@ type AlbumEditorProps = {
   onDismiss: () => void;
 };
 
+const drawerSafeAreaStyles = {
+  content: { paddingTop: "var(--safe-area-top)" },
+  header: { paddingTop: "var(--safe-area-top)" },
+} as const;
+
 export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorProps) {
   const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
   const isDark = computedColorScheme === "dark";
@@ -53,6 +58,18 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     },
     body: { background: "transparent" },
     header: { background: "transparent" },
+  } as const;
+
+  const drawerSurfaceStyles = {
+    ...modalSurfaceStyles,
+    content: {
+      ...modalSurfaceStyles.content,
+      paddingTop: "var(--safe-area-top)",
+    },
+    header: {
+      ...modalSurfaceStyles.header,
+      paddingTop: "var(--safe-area-top)",
+    },
   } as const;
 
   const sectionSurfaceStyle = {
@@ -416,12 +433,17 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
         })}
       </SimpleGrid>
     ) : (
-      <Paper withBorder radius="md" p="lg" ta="center" style={sectionSurfaceStyle}>
+      <Stack
+        gap={6}
+        align="center"
+        justify="center"
+        style={{ minHeight: 220, width: "100%", textAlign: "center", flex: 1 }}
+      >
         <Text fw={500}>No photos yet</Text>
         <Text size="sm" c="dimmed">
           Upload your first photo to preview the frame layout.
         </Text>
-      </Paper>
+      </Stack>
     );
 
   const renderAddPhotoButton = () => (
@@ -435,8 +457,21 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
   );
 
   const Content = (
-    <>
-      <Stack gap="lg" style={{ padding: isMobile ? "1rem" : "1.5rem", minHeight: isMobile ? "100%" : 500 }}>
+    <Box
+      style={{
+        minHeight: isMobile ? "100vh" : undefined,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Stack
+        gap="lg"
+        style={{
+          padding: isMobile ? "1rem" : "1.5rem",
+          minHeight: isMobile ? "100%" : 500,
+          flex: 1,
+        }}
+      >
         <Box
           style={{
             position: "relative",
@@ -590,8 +625,17 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           </Paper>
         )}
 
-        <Paper withBorder radius="lg" p="md" style={sectionSurfaceStyle}>
-          <Stack gap="sm">
+        <Paper
+          withBorder
+          radius="lg"
+          p="md"
+          style={{
+            ...sectionSurfaceStyle,
+            flex: isMobile ? 1 : undefined,
+            display: isMobile ? "flex" : "block",
+          }}
+        >
+          <Stack gap="sm" style={{ flex: isMobile ? 1 : undefined }}>
             <Group justify="space-between" align="center">
               <Text fw={600}>Photos</Text>
               <Group gap="xs">
@@ -622,8 +666,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           </Stack>
         </Paper>
       </Stack>
-
-    </>
+    </Box>
   );
 
   const deleteConfirmModal = (
@@ -714,15 +757,15 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           opened={opened}
           onClose={handleClose}
           size="100%"
-          position="right"
-          withCloseButton={false}
-          zIndex={1000}
-          overlayProps={{ blur: 4 }}
-          styles={modalSurfaceStyles}
-          padding={0}
-        >
-          {Content}
-        </Drawer>
+        position="right"
+        withCloseButton={false}
+        zIndex={1000}
+        overlayProps={{ blur: 4 }}
+        styles={drawerSurfaceStyles}
+        padding={0}
+      >
+        {Content}
+      </Drawer>
         {deleteConfirmModal}
         {deleteAlbumConfirmModal}
         {cancelDraftConfirmModal}

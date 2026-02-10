@@ -33,7 +33,7 @@ export function MobileNavbar({routes} : NavbarProps) {
         bottom: 0,
         left: 0,
         right: 0,
-        height: "calc(76px + var(--safe-area-bottom))",
+        height: 76,
         borderTop: `1px solid ${border}`,
         width: "100%",
         flexShrink: 0,
@@ -41,7 +41,6 @@ export function MobileNavbar({routes} : NavbarProps) {
         backdropFilter: "blur(12px)",
         boxShadow: shadow,
         overflow: "hidden",
-        paddingBottom: "var(--safe-area-bottom)",
         paddingLeft: "var(--safe-area-left)",
         paddingRight: "var(--safe-area-right)",
       }}

@@ -32,7 +32,7 @@ export function Layout({ children }: LayoutProps) {
             flex: 1,
             width: "100%",
             overflowY: "auto",
-            paddingBottom: "calc(12px + var(--safe-area-bottom))", // keep content clear of nav shadow & safe area
+            paddingBottom: "12px", // keep content clear of nav shadow
           }}
         >
           {children}
@@ -59,7 +59,6 @@ export function Layout({ children }: LayoutProps) {
           flex: 1,
           width: "100%",
           overflowY: "auto",
-          paddingBottom: "var(--safe-area-bottom)",
         }}
       >
         {children}

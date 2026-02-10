@@ -26,6 +26,11 @@ import { usePhoto } from "../../contexts/PhotoContext";
 import { getUrlFromPhoto } from "../../util/UrlUtil";
 import { BackgroundModal } from "../layout/BackgroundModal";
 
+const drawerSafeAreaStyles = {
+  content: { paddingTop: "var(--safe-area-top)" },
+  header: { paddingTop: "var(--safe-area-top)" },
+} as const;
+
 const normalizeTimeValue = (value: string) => {
   if (typeof value !== "string") return null;
   const trimmed = (value || "").trim();
@@ -260,6 +265,18 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
     },
     body: { background: "transparent" },
     header: { background: "transparent" },
+  } as const;
+
+  const drawerSurfaceStyles = {
+    ...modalSurfaceStyles,
+    content: {
+      ...modalSurfaceStyles.content,
+      paddingTop: "var(--safe-area-top)",
+    },
+    header: {
+      ...modalSurfaceStyles.header,
+      paddingTop: "var(--safe-area-top)",
+    },
   } as const;
 
   const headerImage = (
@@ -796,6 +813,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
       position="bottom"
       size="100%"
       padding="md"
+      styles={drawerSurfaceStyles}
       scrollAreaComponent={ScrollArea.Autosize}
       title={displayAlbum?.name || "Album details"}
     >
@@ -818,16 +836,17 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
     return (
       <>
         <Drawer
-          opened={opened}
-          onClose={requestClose}
-          position="bottom"
-          size="100%"
-          padding={mobilePadding}
-          scrollAreaComponent={ScrollArea.Autosize}
-          title="Frame details"
-        >
-          {content}
-        </Drawer>
+        opened={opened}
+        onClose={requestClose}
+        position="bottom"
+        size="100%"
+        padding={mobilePadding}
+        styles={drawerSurfaceStyles}
+        scrollAreaComponent={ScrollArea.Autosize}
+        title="Frame details"
+      >
+        {content}
+      </Drawer>
         {albumModal}
         {albumDetailModal}
         <Modal
