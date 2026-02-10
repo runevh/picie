@@ -40,22 +40,33 @@ class TcpClient {
     this.pendingTask = null;
     this.processingTask = false;
 
-        this.authTimeout = setTimeout(() => {
-            console.log('Auth timeout — closing connection');
-            this.socket.destroy();
-        }, 15000);
+    // Enable TCP-level keepalive so we notice abrupt device power-offs
+    // instead of holding a half-open connection indefinitely.
+    this.socket.setKeepAlive(true, 15_000);
+
+    this.authTimeout = setTimeout(() => {
+      console.log('Auth timeout — closing connection');
+      this.socket.destroy();
+    }, 15000);
 
         this.socket.on('data', data => this.onData(data));
         this.socket.on('error', err => {
             console.error('Socket error:', err);
         });
-        this.socket.on('close', () => {
-            if (this.uuid) {
-                devices.delete(this.uuid);
-            }
-        });
-        this.devices = devices
-    }
+    this.socket.on('end', () => {
+      if (this.uuid) {
+        console.log(`Device ${this.uuid} ended connection`);
+      }
+    });
+    this.socket.on('close', () => {
+      clearTimeout(this.authTimeout);
+      if (this.uuid) {
+        devices.delete(this.uuid);
+        console.log(`Device ${this.uuid} disconnected; cleaned up state`);
+      }
+    });
+    this.devices = devices
+  }
 
     onData(data) {
         this.buffer = Buffer.concat([this.buffer, data]);
