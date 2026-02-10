@@ -203,18 +203,7 @@ const stats = useMemo(
             </Group>
           }
           meta={null}
-          aside={
-            <PulseCard
-              icon={IconFolder}
-              iconColor="indigo"
-              title="Library pulse"
-              description="Snapshot of what's inside your library."
-              shadow="0 10px 26px -20px rgba(15, 23, 42, 0.35)"
-              blur={8}
-              style={{ minWidth: 260, background: surface, borderColor: surfaceBorder }}
-              items={stats.map(({ label, value }) => ({ label, value, divider: true }))}
-            />
-          }
+          aside={null}
         />
 
         <GlassCard radius="lg" p="lg" shadow={isDark ? "0 22px 80px -70px rgba(0,0,0,0.7)" : "0 22px 80px -60px rgba(15, 23, 42, 0.4)"}>

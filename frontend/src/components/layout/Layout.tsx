@@ -20,7 +20,6 @@ export function Layout({ children }: LayoutProps) {
         h="100vh"
         style={{
           width: "100%",
-          paddingTop: "var(--safe-area-top)",
           paddingLeft: "var(--safe-area-left)",
           paddingRight: "var(--safe-area-right)",
           gap: 0,
@@ -32,6 +31,7 @@ export function Layout({ children }: LayoutProps) {
             flex: 1,
             width: "100%",
             overflowY: "auto",
+            paddingTop: "var(--safe-area-top)",
             paddingBottom: "12px", // keep content clear of nav shadow
           }}
         >
@@ -47,7 +47,6 @@ export function Layout({ children }: LayoutProps) {
       h="100vh"
       style={{
         width: "100%",
-        paddingTop: "var(--safe-area-top)",
         paddingLeft: "var(--safe-area-left)",
         paddingRight: "var(--safe-area-right)",
       }}
@@ -59,6 +58,7 @@ export function Layout({ children }: LayoutProps) {
           flex: 1,
           width: "100%",
           overflowY: "auto",
+          paddingTop: "var(--safe-area-top)",
         }}
       >
         {children}

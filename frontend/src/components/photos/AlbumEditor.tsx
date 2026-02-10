@@ -233,6 +233,15 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     }
   };
 
+  const handleRequestClose = () => {
+    if (isDraft) {
+      handleCancelDraft();
+      return;
+    }
+
+    handleClose();
+  };
+
   const handleCreateDraft = () => {
     if (!isDraft || isCreatingDraft) return;
     if (autosaveTimeoutRef.current) {
@@ -502,7 +511,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
             <ActionIcon
               variant="subtle"
               aria-label="Close editor"
-              onClick={handleClose}
+              onClick={handleRequestClose}
               style={{
                 backgroundColor: "rgba(0, 0, 0, 0.45)",
                 color: "white",
@@ -536,18 +545,6 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
                     disabled={creationLocked}
                   >
                     Create album
-                  </Button>
-                  <Button
-                    variant="subtle"
-                    color="red"
-                    style={{
-                      backgroundColor: "transparent",
-                      border: "1px solid rgba(255,0,0,0.3)",
-                    }}
-                    onClick={handleCancelDraft}
-                    disabled={creationLocked}
-                  >
-                    Cancel
                   </Button>
                 </>
               )}
@@ -755,7 +752,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
       <>
         <Drawer
           opened={opened}
-          onClose={handleClose}
+          onClose={handleRequestClose}
           size="100%"
         position="right"
         withCloseButton={false}
@@ -777,7 +774,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
     <>
       <BackgroundModal
         opened={opened}
-        onClose={handleClose}
+        onClose={handleRequestClose}
         size="lg"
         radius="lg"
         centered
