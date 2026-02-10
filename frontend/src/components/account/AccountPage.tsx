@@ -1,351 +1,318 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
-  Box,
   Button,
+  Divider,
   Group,
-  PasswordInput,
+  LoadingOverlay,
+  Modal,
+  Paper,
   Stack,
   Text,
   TextInput,
-  Textarea,
   Title,
-  Divider,
-  Alert,
-  SimpleGrid,
-  ThemeIcon,
-  Progress,
-  SegmentedControl,
-  useMantineColorScheme,
   useComputedColorScheme,
 } from "@mantine/core";
-import {
-  IconChecks,
-  IconAlertTriangle,
-  IconMail,
-  IconShieldLock,
-  IconSparkles,
-  IconUser,
-  IconMoon,
-  IconSun,
-  IconDeviceLaptop,
-  IconLogout,
-} from "@tabler/icons-react";
-import { useAuth } from "../../contexts/UserContext";
-import { GlassCard } from "../layout/GlassCard";
+import { useForm } from "@mantine/form";
+import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
+import { IconLock, IconLogout, IconMail, IconShieldCheck, IconTrash, IconUserEdit } from "@tabler/icons-react";
+import { Background } from "../layout/Background";
 import { PageHero } from "../layout/PageHero";
+import { GlassCard } from "../layout/GlassCard";
+import { MetricTile } from "../layout/MetricTile";
+import { useAuth } from "../../contexts/UserContext";
+import { authService } from "../../services/AuthService";
 
 export function AccountPage() {
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const { user, logout, loading, updateProfile, refreshUser } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutOpen, { open: openLogout, close: closeLogout }] = useDisclosure(false);
   const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
-  const { user, logout } = useAuth();
-  const [deleteReason, setDeleteReason] = useState("");
-  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const fullName = user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "Unknown user";
   const isDark = computedColorScheme === "dark";
-  const surfaceBorder = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.45)";
+  const surface = isDark ? "rgba(20, 24, 35, 0.9)" : "rgba(255,255,255,0.92)";
+  const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.4)";
   const heroOverlay = isDark
     ? "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
     : "linear-gradient(145deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12))";
-  const passwordStrength = Math.min(Math.round((newPassword.length / 14) * 100), 100);
-  const passwordStatus =
-    passwordStrength >= 80 ? "Looking solid" : passwordStrength >= 50 ? "Keep hardening" : "Start fresh";
 
-  const handlePasswordChange = async () => {
-    setChangePasswordLoading(true);
-    setTimeout(() => {
-      setChangePasswordLoading(false);
-      setNewPassword("");
-      setConfirmPassword("");
-    }, 800);
+  const form = useForm({
+    initialValues: {
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+      email: user?.email ?? "",
+      username: user?.username ?? "",
+    },
+    validate: {
+      firstName: (value) => (!value.trim() ? "First name is required" : null),
+      email: (value) => (!value.includes("@") ? "Enter a valid email" : null),
+      username: (value) => (value.trim().length < 3 ? "Username must be at least 3 characters" : null),
+    },
+  });
+
+  useEffect(() => {
+    form.setValues({
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+      email: user?.email ?? "",
+      username: user?.username ?? "",
+    });
+  }, [user]);
+
+  const stats = useMemo(
+    () => [
+      {
+        label: "Signed in as",
+        value: user?.username ?? "Guest",
+        description: user?.email,
+      },
+      {
+        label: "Role",
+        value: user?.admin ? "Admin" : "Member",
+        description: user?.admin ? "Full access" : "Standard access",
+      },
+    ],
+    [user],
+  );
+
+  const handleSave = async () => {
+    const validation = form.validate();
+    if (validation.hasErrors) return;
+    setSaving(true);
+    try {
+      const res = await updateProfile(form.values);
+      if (!res.success) {
+        notifications.show({ title: "Update failed", message: res.data || "Could not save changes", color: "red" });
+        return;
+      }
+      await refreshUser();
+      notifications.show({ title: "Profile updated", message: "Your info was saved.", color: "green" });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleRequestDelete = async () => {
-    setDeleteLoading(true);
-    setTimeout(() => {
-      setDeleteLoading(false);
-      setDeleteReason("");
-    }, 800);
+  const handleDeleteRequest = async () => {
+    setDeleting(true);
+    try {
+      const res = await authService.requestDeletion();
+      if (!res.success) {
+        notifications.show({
+          title: "Request failed",
+          message: res.data || "Could not submit deletion request.",
+          color: "red",
+        });
+      } else {
+        notifications.show({
+          title: "Request received",
+          message: "We logged your account deletion request. A confirmation email will follow.",
+          color: "orange",
+        });
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const email = form.values.email || user?.email || "";
+    setResetting(true);
+    try {
+      const res = await authService.requestPasswordReset(email);
+      if (!res.success) {
+        notifications.show({
+          title: "Could not start reset",
+          message: res.data || "Check the email address and try again.",
+          color: "red",
+        });
+      } else {
+        notifications.show({
+          title: "Check your inbox",
+          message: "We sent password reset instructions.",
+          color: "blue",
+        });
+      }
+    } finally {
+      setResetting(false);
+    }
   };
 
   return (
-    <Box
-      p={{ base: "md", md: "xl" }}
-      style={{
-        minHeight: "100%",
-        background: isDark
-          ? "radial-gradient(circle at 15% 20%, rgba(52, 125, 244, 0.1), transparent 24%)," +
-            "radial-gradient(circle at 85% 10%, rgba(132, 94, 247, 0.12), transparent 22%)," +
-            "linear-gradient(145deg, #0f1629, #0f172a)"
-          : "radial-gradient(circle at 15% 20%, rgba(52, 125, 244, 0.1), transparent 24%)," +
-            "radial-gradient(circle at 85% 10%, rgba(132, 94, 247, 0.1), transparent 22%)," +
-            "linear-gradient(135deg, #f8fbff, #eef2ff)",
-      }}
-    >
+    <Background p={{ base: "md", md: "xl" }} style={{ minHeight: "100%" }}>
       <Stack gap="xl">
         <PageHero
           overlay={heroOverlay}
-          badge={null}
-          title={
-            <Title order={1} size="h2" lh={1.2}>
-              {fullName || "Account owner"}
-            </Title>
-          }
+          badge={<Badge variant="light" color="blue">Account</Badge>}
+      title={
+        <Title order={1} size="h2" lh={1.2}>
+          Your account, tidy and transparent.
+        </Title>
+      }
           description={
             <Text c="dimmed" size="sm">
-              A clearer, more focused space to keep your identity and security in sync.
+              Update personal details, manage security actions, or sign out—all in one clean panel.
             </Text>
           }
-          meta={
+          actions={
             <Group gap="sm" wrap="wrap">
-              <Badge variant="outline" color="gray" leftSection={<IconMail size={14} />}>
-                {user?.email ?? "unknown"}
-              </Badge>
-              {user?.username && (
-                <Badge variant="outline" color="gray" leftSection={<IconUser size={14} />}>
-                  @{user.username}
-                </Badge>
-              )}
-              <Badge variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
-                Synced profile
-              </Badge>
+              <Button leftSection={<IconLogout size={16} />} variant="default" onClick={openLogout}>
+                Log out
+              </Button>
             </Group>
           }
-          footer={
-            <Stack gap={6} w={{ base: "100%", sm: 320 }}>
-              <Text size="xs" c="dimmed" fw={600}>
-                Appearance
-              </Text>
-              <SegmentedControl
-                value={colorScheme}
-                onChange={(value) => setColorScheme(value as "light" | "dark" | "auto")}
-                radius="md"
-                size="xs"
-                fullWidth
-                data={[
-                  {
-                    value: "light",
-                    label: (
-                      <Group gap={6} justify="center">
-                        <IconSun size={14} />
-                        <Text size="xs">Light</Text>
-                      </Group>
-                    ),
-                  },
-                  {
-                    value: "dark",
-                    label: (
-                      <Group gap={6} justify="center">
-                        <IconMoon size={14} />
-                        <Text size="xs">Dark</Text>
-                      </Group>
-                    ),
-                  },
-                  {
-                    value: "auto",
-                    label: (
-                      <Group gap={6} justify="center">
-                        <IconDeviceLaptop size={14} />
-                        <Text size="xs">System</Text>
-                      </Group>
-                    ),
-                  },
-                ]}
-              />
-            </Stack>
-          }
-          aside={
-            <GlassCard
-              radius="lg"
-              p="md"
-              surfaceColor={isDark ? "rgba(17, 23, 34, 0.85)" : "rgba(255, 255, 255, 0.82)"}
-              borderColor={surfaceBorder}
-              blur={8}
-              shadow={isDark ? "0 16px 50px -50px rgba(0,0,0,0.7)" : "0 16px 50px -40px rgba(15, 23, 42, 0.5)"}
-              style={{ minWidth: 260 }}
-            >
-              <Group align="flex-start" gap="sm">
-                <ThemeIcon variant="light" color="teal">
-                  <IconSparkles size={16} />
-                </ThemeIcon>
-                <Stack gap={4} style={{ flex: 1 }}>
-                  <Text fw={600}>Profile snapshot</Text>
-                  <Text size="xs" c="dimmed">
-                    Identity is up to date. You can adjust details anytime below.
-                  </Text>
-                  <Group gap="xs" wrap="wrap" mt={6}>
-                    <Badge size="sm" variant="light" color="teal">
-                      Active session
-                    </Badge>
-                    <Badge size="sm" variant="light" color="blue">
-                      Clean layout
-                    </Badge>
-                  </Group>
-                </Stack>
-              </Group>
-            </GlassCard>
+          meta={
+            user?.admin ? (
+              <Badge variant="light" color="violet">
+                Admin
+              </Badge>
+            ) : null
           }
         />
 
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-          <GlassCard
-            radius="lg"
-            p="lg"
-            shadow={isDark ? "0 18px 60px -50px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.35)"}
-            blur={8}
-          >
-            <Stack gap="md">
-              <Group justify="space-between" align="flex-start" wrap="wrap">
-                <Group gap="sm">
-                  <ThemeIcon variant="light" color="blue">
-                    <IconUser size={16} />
-                  </ThemeIcon>
-                  <Stack gap={2}>
-                    <Text size="sm" c="dimmed" fw={600}>
-                      Identity
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Read-only details from your profile.
-                    </Text>
-                  </Stack>
-                </Group>
+        <GlassCard radius="lg" p="lg" style={{ background: surface, borderColor: surfaceBorder }}>
+          <LoadingOverlay visible={loading || saving} overlayProps={{ blur: 2 }} />
+          <Stack gap="lg">
+            <Group align="center" justify="space-between">
+              <Group gap="sm">
+                <IconUserEdit size={18} />
+                <Text fw={600}>Basic info</Text>
               </Group>
-
-              <Divider />
-
-              <Stack gap="sm">
-                <TextInput
-                  label="Full name"
-                  value={fullName}
-                  readOnly
-                  leftSection={<IconUser size={16} />}
-                />
-                <TextInput
-                  label="Email"
-                  value={user?.email ?? "unknown"}
-                  readOnly
-                  leftSection={<IconMail size={16} />}
-                />
-                <Group justify="flex-end" mt="xs">
-                  <Button variant="default" onClick={logout} leftSection={<IconLogout size={16} />}>
-                    Sign off
-                  </Button>
-                </Group>
-              </Stack>
-            </Stack>
-          </GlassCard>
-
-          <GlassCard
-            radius="lg"
-            p="lg"
-            shadow={isDark ? "0 18px 60px -50px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.35)"}
-            blur={8}
-          >
-            <Stack gap="md">
-              <Group justify="space-between" align="flex-start" wrap="wrap">
-                <Group gap="sm">
-                  <ThemeIcon variant="light" color="indigo">
-                    <IconShieldLock size={16} />
-                  </ThemeIcon>
-                  <Stack gap={2}>
-                    <Text size="sm" c="dimmed" fw={600}>
-                      Security
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Refresh your password with a clearer, calmer form.
-                    </Text>
-                  </Stack>
-                </Group>
-                    <Badge variant="light" color="teal">
-                      Live
-                    </Badge>
+              <Group gap="xs">
+                <Button size="xs" variant="default" onClick={() => form.reset()} disabled={saving}>
+                  Reset
+                </Button>
+                <Button size="xs" onClick={handleSave} loading={saving}>
+                  Save changes
+                </Button>
               </Group>
+            </Group>
+            <Divider />
+            <Group grow gap="md">
+              <TextInput
+                label="First name"
+                placeholder="First name"
+                {...form.getInputProps("firstName")}
+              />
+              <TextInput
+                label="Last name"
+                placeholder="Last name"
+                {...form.getInputProps("lastName")}
+              />
+            </Group>
+            <Group grow gap="md">
+              <TextInput
+                label="Email"
+                placeholder="you@example.com"
+                leftSection={<IconMail size={14} />}
+                {...form.getInputProps("email")}
+              />
+              <TextInput
+                label="Username"
+                placeholder="your username"
+                {...form.getInputProps("username")}
+              />
+            </Group>
+          </Stack>
+        </GlassCard>
 
-              <Divider />
-
-              <Stack gap="sm">
-                <PasswordInput
-                  label="New password"
-                  placeholder="Enter a new password"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.currentTarget.value)}
-                />
-                <PasswordInput
-                  label="Confirm password"
-                  placeholder="Repeat the new password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.currentTarget.value)}
-                  error={confirmPassword && confirmPassword !== newPassword ? "Passwords do not match" : undefined}
-                />
-
-                <Stack gap={4}>
-                  <Group justify="space-between">
-                    <Text size="xs" c="dimmed">
-                      Strength
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {passwordStatus}
-                    </Text>
-                  </Group>
-                  <Progress
-                    radius="xl"
-                    size="sm"
-                    striped
-                    value={passwordStrength}
-                    color={passwordStrength >= 80 ? "teal" : passwordStrength >= 50 ? "blue" : "gray"}
-                  />
-                </Stack>
-
-                <Group justify="flex-end">
+        <GlassCard radius="lg" p="lg" style={{ background: surface, borderColor: surfaceBorder }}>
+          <Stack gap="lg">
+            <Group align="center" justify="space-between">
+              <Group gap="sm">
+                <IconShieldCheck size={18} />
+                <Text fw={600}>Security</Text>
+              </Group>
+              <Badge variant="light" color="gray">
+                Password & account actions
+              </Badge>
+            </Group>
+            <Divider />
+            <Group gap="md" grow>
+              <Paper withBorder radius="md" p="md" style={{ borderColor: surfaceBorder, background: "transparent" }}>
+                <Stack gap="sm">
+                  <Text fw={600} size="sm">Password reset</Text>
+                  <Text size="xs" c="dimmed">Send yourself a reset link to set a new password.</Text>
                   <Button
-                    leftSection={<IconChecks size={16} />}
-                    disabled={!newPassword || newPassword !== confirmPassword}
-                    loading={changePasswordLoading}
-                    onClick={handlePasswordChange}
+                    variant="light"
+                    leftSection={<IconLock size={16} />}
+                    onClick={handlePasswordReset}
+                    loading={resetting}
                   >
-                    Update password
+                    Start reset
                   </Button>
-                </Group>
-              </Stack>
-            </Stack>
-          </GlassCard>
-        </SimpleGrid>
+                </Stack>
+              </Paper>
+              <Paper withBorder radius="md" p="md" style={{ borderColor: surfaceBorder, background: "transparent" }}>
+                <Stack gap="sm">
+                  <Text fw={600} size="sm">Delete account</Text>
+                  <Text size="xs" c="dimmed">Submit a request to remove your account and data.</Text>
+                  <Button
+                    color="red"
+                    variant="outline"
+                    leftSection={<IconTrash size={16} />}
+                    onClick={handleDeleteRequest}
+                    loading={deleting}
+                  >
+                    Request deletion
+                  </Button>
+                </Stack>
+              </Paper>
+            </Group>
+          </Stack>
+        </GlassCard>
 
-        <GlassCard
-          radius="xl"
-          p="xl"
-          surfaceColor={
-            isDark
-              ? "linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(15, 23, 42, 0.8))"
-              : "linear-gradient(135deg, rgba(255, 107, 129, 0.18), rgba(255, 255, 255, 0.9))"
-          }
-          borderColor={isDark ? "rgba(239, 68, 68, 0.4)" : "rgba(255, 107, 129, 0.35)"}
-          shadow={isDark ? "0 26px 80px -60px rgba(239, 68, 68, 0.4)" : "0 26px 80px -60px rgba(255, 107, 129, 0.6)"}
-        >
+        <GlassCard radius="lg" p="lg" style={{ background: surface, borderColor: surfaceBorder }}>
           <Stack gap="md">
-            <Alert icon={<IconAlertTriangle size={16} />} color="red" variant="light" title="Danger zone">
-              Deleting your account removes all associated albums, frames, and collaborators. This action cannot be undone.
-            </Alert>
-
-            <Textarea
-              label="Tell us why you're leaving"
-              placeholder="Optional"
-              value={deleteReason}
-              onChange={(event) => setDeleteReason(event.currentTarget.value)}
-            />
-
-            <Group justify="space-between" align="center" wrap="wrap">
-              <Button color="red" loading={deleteLoading} onClick={handleRequestDelete} leftSection={<IconAlertTriangle size={16} />}>
-                Request account deletion
-              </Button>
+            <Text fw={600}>Snapshot</Text>
+            <Group gap="md" grow>
+              {stats.map((item) => (
+                <MetricTile
+                  key={item.label as string}
+                  label={item.label}
+                  value={item.value}
+                  description={item.description}
+                  surfaceColor={surface}
+                  borderColor={surfaceBorder}
+                  shadow="none"
+                />
+              ))}
             </Group>
           </Stack>
         </GlassCard>
       </Stack>
-    </Box>
+      <Modal
+        opened={logoutOpen}
+        onClose={closeLogout}
+        title={<Group gap={8}><IconLogout size={16} /> <Text fw={600}>Log out?</Text></Group>}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            You’ll need to sign in again to manage frames or photos. Are you sure you want to log out?
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={closeLogout} disabled={loggingOut}>
+              Stay signed in
+            </Button>
+            <Button
+              color="red"
+              leftSection={<IconLogout size={14} />}
+              loading={loggingOut}
+              onClick={async () => {
+                setLoggingOut(true);
+                await logout();
+                setLoggingOut(false);
+                closeLogout();
+              }}
+            >
+              Log out
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Background>
   );
 }

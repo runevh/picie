@@ -16,4 +16,17 @@ export const authService = {
   fetchUser: async () => {
     return await getRequest("auth");
   },
+
+  updateProfile: async (updates: Record<string, unknown>) => {
+    // Endpoint name chosen to be generic; adjust when backend provides one.
+    return await postRequest("user/update", updates);
+  },
+
+  requestDeletion: async (reason: string | null = null) => {
+    return await postRequest("account/delete-request", { reason });
+  },
+
+  requestPasswordReset: async (email: string) => {
+    return await postRequest("password/reset/request", { email });
+  },
 };

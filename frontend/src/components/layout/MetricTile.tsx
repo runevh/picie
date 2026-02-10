@@ -41,7 +41,11 @@ export function MetricTile({
                 {icon}
               </ThemeIcon>
             )}
-            <Text fw={600}>{label}</Text>
+            {typeof label === "string" || typeof label === "number" ? (
+              <Text fw={600}>{label}</Text>
+            ) : (
+              label
+            )}
           </Group>
         )}
         <Text fw={600} size="xl">

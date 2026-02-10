@@ -16,6 +16,8 @@ interface UserContextType {
   login: (username: string, password: string) => Promise<ResponseBody>;
   register: (username: string, email: string, password: string, firstName: string, lastName: string) => Promise<ResponseBody>;
   logout: () => void;
+  refreshUser: () => Promise<ResponseBody | null>;
+  updateProfile: (updates: Partial<User>) => Promise<ResponseBody>;
   loading: boolean;
 }
 
@@ -60,8 +62,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async (): Promise<ResponseBody | null> => {
+    setLoading(true);
+    try {
+      const res = await authService.fetchUser();
+      if (res.success && res.data) {
+        const fetched = (res.data as any).data ?? (res.data as any).user ?? res.data;
+        setUser(fetched);
+      }
+      return res;
+    } catch (e) {
+      console.error(e);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async (updates: Partial<User>): Promise<ResponseBody> => {
+    const res = await authService.updateProfile(updates);
+    if (res.success && res.data) {
+      const updated = (res.data as any).user ?? (res.data as any).data ?? res.data;
+      if (updated) setUser(updated);
+    }
+    return res;
+  };
+
   return (
-    <UserContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout, loading }}>
+    <UserContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        login,
+        register,
+        logout,
+        refreshUser,
+        updateProfile,
+        loading,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );
@@ -72,4 +111,3 @@ export function useAuth() {
   if (!context) throw new Error("useAuth must be used within a UserProvider");
   return context;
 }
-
