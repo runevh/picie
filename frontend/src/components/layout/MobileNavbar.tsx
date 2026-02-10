@@ -18,7 +18,7 @@ export function MobileNavbar({routes} : NavbarProps) {
     return routes
       .filter((route) => { 
         if (!route.navbarInfo) return false;
-    
+
         return route.type !== "ADMIN" || user?.admin;
       })
   }, [routes, user?.admin]);
@@ -26,7 +26,6 @@ export function MobileNavbar({routes} : NavbarProps) {
   return (
     <Box
       component="nav"
-      h={76}
       px="sm"
       bg={surface}
       style={{
@@ -34,6 +33,7 @@ export function MobileNavbar({routes} : NavbarProps) {
         bottom: 0,
         left: 0,
         right: 0,
+        height: "calc(76px + var(--safe-area-bottom))",
         borderTop: `1px solid ${border}`,
         width: "100%",
         flexShrink: 0,
@@ -41,6 +41,9 @@ export function MobileNavbar({routes} : NavbarProps) {
         backdropFilter: "blur(12px)",
         boxShadow: shadow,
         overflow: "hidden",
+        paddingBottom: "var(--safe-area-bottom)",
+        paddingLeft: "var(--safe-area-left)",
+        paddingRight: "var(--safe-area-right)",
       }}
     >
       <Box

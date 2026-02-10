@@ -15,13 +15,24 @@ export function Layout({ children }: LayoutProps) {
 
   if (isMobile) {
     return (
-      <Flex direction="column" h="100vh" style={{ width: "100%" }}>
+      <Flex
+        direction="column"
+        h="100vh"
+        style={{
+          width: "100%",
+          paddingTop: "var(--safe-area-top)",
+          paddingLeft: "var(--safe-area-left)",
+          paddingRight: "var(--safe-area-right)",
+          gap: 0,
+        }}
+      >
         <Background
           component="main"
           style={{
             flex: 1,
             width: "100%",
             overflowY: "auto",
+            paddingBottom: "calc(12px + var(--safe-area-bottom))", // keep content clear of nav shadow & safe area
           }}
         >
           {children}
@@ -32,7 +43,15 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <Flex h="100vh" style={{ width: "100%" }}>
+    <Flex
+      h="100vh"
+      style={{
+        width: "100%",
+        paddingTop: "var(--safe-area-top)",
+        paddingLeft: "var(--safe-area-left)",
+        paddingRight: "var(--safe-area-right)",
+      }}
+    >
       <DesktopNavbar routes={testRoutes} />
       <Background
         component="main"
@@ -40,6 +59,7 @@ export function Layout({ children }: LayoutProps) {
           flex: 1,
           width: "100%",
           overflowY: "auto",
+          paddingBottom: "var(--safe-area-bottom)",
         }}
       >
         {children}

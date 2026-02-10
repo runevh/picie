@@ -24,6 +24,7 @@ import { IconClock, IconPencil, IconPhoto, IconWifi, IconWifiOff, IconX } from "
 import { useIsMobile } from "../../util/LayoutUtil";
 import { usePhoto } from "../../contexts/PhotoContext";
 import { getUrlFromPhoto } from "../../util/UrlUtil";
+import { BackgroundModal } from "../layout/BackgroundModal";
 
 const normalizeTimeValue = (value: string) => {
   if (typeof value !== "string") return null;
@@ -80,6 +81,9 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
   const isMobile = useIsMobile();
   const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
   const isDark = computedColorScheme === "dark";
+  const surface = isDark ? "rgba(20,24,35,0.9)" : "rgba(255,255,255,0.92)";
+  const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.12)";
+  const mobilePadding = isMobile ? "sm" : "md";
   const { albums } = usePhoto();
   const defaultTimes = frame.timesOfDay && frame.timesOfDay.length > 0 ? frame.timesOfDay : ["02:00", "14:00"];
   const [name, setName] = useState(frame.name);
@@ -247,6 +251,16 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
       setConfirmUnlinkOpen(false);
     }
   };
+
+  const modalSurfaceStyles = {
+    content: {
+      background: surface,
+      border: `1px solid ${surfaceBorder}`,
+      boxShadow: isDark ? "0 18px 60px -45px rgba(0,0,0,0.7)" : "0 18px 60px -40px rgba(15,23,42,0.32)",
+    },
+    body: { background: "transparent" },
+    header: { background: "transparent" },
+  } as const;
 
   const headerImage = (
     <Box
@@ -424,7 +438,11 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
   };
 
   const content = (
-    <Stack gap="lg" p="md" style={{ minHeight: isMobile ? "100%" : "auto" }}>
+    <Stack
+      gap="lg"
+      p={mobilePadding}
+      style={{ minHeight: isMobile ? "calc(100vh - 140px)" : "auto" }}
+    >
       {headerImage}
       <Stack gap="sm">
         <TextInput
@@ -460,7 +478,12 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
                 </Button>
               </Group>
 
-              <Box>
+              <Box
+                style={{
+                  width: "100%",
+                  minHeight: isMobile ? "38vh" : undefined,
+                }}
+              >
                 {albumPhotos.length === 0 ? (
                   <Paper withBorder radius="md" p="sm">
                     <Stack gap={4}>
@@ -707,6 +730,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
       search={albumSearch}
       onSearch={setAlbumSearch}
       nextUpdate={nextUpdateText}
+      modalStyles={modalSurfaceStyles}
     />
   );
 
@@ -778,15 +802,16 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
       {albumDetailContent}
     </Drawer>
   ) : (
-    <Modal
+    <BackgroundModal
       opened={albumDetailOpen}
       onClose={() => setAlbumDetailOpen(false)}
       title={displayAlbum?.name || "Album details"}
       radius="lg"
       size="lg"
+      innerPadding="md"
     >
       {albumDetailContent}
-    </Modal>
+    </BackgroundModal>
   );
 
   if (isMobile) {
@@ -797,7 +822,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
           onClose={requestClose}
           position="bottom"
           size="100%"
-          padding="md"
+          padding={mobilePadding}
           scrollAreaComponent={ScrollArea.Autosize}
           title="Frame details"
         >
@@ -810,6 +835,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
           onClose={() => setConfirmUnlinkOpen(false)}
           title="Unlink frame?"
           radius="lg"
+          styles={modalSurfaceStyles}
         >
           <Stack gap="sm">
             <Text>
@@ -830,6 +856,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
           onClose={() => setConfirmCloseOpen(false)}
           title="Discard changes?"
           radius="lg"
+          styles={modalSurfaceStyles}
         >
           <Stack gap="sm">
             <Text>
@@ -851,15 +878,16 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
 
   return (
     <>
-      <Modal opened={opened} onClose={requestClose} size="xl" radius="lg" withCloseButton={false}>
+      <BackgroundModal opened={opened} onClose={requestClose} size="xl" radius="lg" withCloseButton={false} innerPadding={mobilePadding}>
         <ScrollArea h="75vh">{content}</ScrollArea>
-      </Modal>
+      </BackgroundModal>
       {albumDetailModal}
       <Modal
         opened={confirmUnlinkOpen}
         onClose={() => setConfirmUnlinkOpen(false)}
         title="Unlink frame?"
         radius="lg"
+        styles={modalSurfaceStyles}
       >
         <Stack gap="sm">
           <Text>
@@ -880,6 +908,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
         onClose={() => setConfirmCloseOpen(false)}
         title="Discard changes?"
         radius="lg"
+        styles={modalSurfaceStyles}
       >
         <Stack gap="sm">
           <Text>
@@ -908,6 +937,7 @@ function AlbumPickerModal({
   search,
   onSearch,
   nextUpdate,
+  modalStyles,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -916,9 +946,10 @@ function AlbumPickerModal({
   search: string;
   onSearch: (value: string) => void;
   nextUpdate?: string;
+  modalStyles?: any;
 }) {
   return (
-    <Modal opened={opened} onClose={onClose} title="Choose album" size="lg" radius="lg">
+    <Modal opened={opened} onClose={onClose} title="Choose album" size="lg" radius="lg" styles={modalStyles}>
       <Stack gap="sm">
         <TextInput
           placeholder="Search albums..."

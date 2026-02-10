@@ -1,4 +1,4 @@
-import { Box, Modal, Stack, TextInput, Text, Button, Group, Checkbox, Avatar, Badge, ActionIcon, ScrollArea, Drawer, Paper, SimpleGrid } from "@mantine/core";
+import { Box, Modal, Stack, TextInput, Text, Button, Group, Checkbox, Avatar, Badge, ActionIcon, ScrollArea, Drawer, Paper, SimpleGrid, useComputedColorScheme } from "@mantine/core";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Album, Collaborator } from "../../types/Photos";
 import { IconTrash, IconPhotoPlus, IconCheck, IconX } from "@tabler/icons-react";
@@ -6,6 +6,7 @@ import { useIsMobile } from "../../util/LayoutUtil";
 import {  usePhotoUploader } from "./PhotoUploader";
 import { getUrlFromPhoto } from "../../util/UrlUtil";
 import { usePhoto } from "../../contexts/PhotoContext";
+import { BackgroundModal } from "../layout/BackgroundModal";
 
 type AlbumEditorProps = {
   opened: boolean;
@@ -15,6 +16,8 @@ type AlbumEditorProps = {
 };
 
 export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorProps) {
+  const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
+  const isDark = computedColorScheme === "dark";
   const [name, setName] = useState(album.name || "Untitled album");
   const [collaborators, setCollaborators] = useState<Collaborator[]>(album.collaborators || []);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -37,6 +40,26 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
 
   const isMobile = useIsMobile();
   const isDraft = useMemo(() => album.id.startsWith("draft-"), [album.id]);
+
+  const surface = isDark ? "rgba(20,24,35,0.9)" : "rgba(255,255,255,0.92)";
+  const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.12)";
+  const liftShadow = isDark ? "0 18px 60px -45px rgba(0,0,0,0.7)" : "0 18px 60px -40px rgba(15,23,42,0.28)";
+
+  const modalSurfaceStyles = {
+    content: {
+      background: surface,
+      border: `1px solid ${surfaceBorder}`,
+      boxShadow: liftShadow,
+    },
+    body: { background: "transparent" },
+    header: { background: "transparent" },
+  } as const;
+
+  const sectionSurfaceStyle = {
+    background: surface,
+    borderColor: surfaceBorder,
+    boxShadow: liftShadow,
+  } as const;
 
   useEffect(() => {
     setName(album.name || "Untitled album");
@@ -365,9 +388,11 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 cursor: "pointer",
-                boxShadow: isSelected ? "0 0 0 3px var(--mantine-color-blue-light)" : undefined,
+                boxShadow: isSelected
+                  ? "0 0 0 3px rgba(96,165,250,0.9), 0 12px 32px rgba(0,0,0,0.28)"
+                  : liftShadow,
                 outline: "none",
-                border: "none",
+                border: `1px solid ${isSelected ? "rgba(96,165,250,0.9)" : surfaceBorder}`,
                 backgroundColor: "transparent",
               }}
             >
@@ -376,7 +401,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
                   style={{
                     position: "absolute",
                     inset: 0,
-                    backgroundColor: "rgba(13, 110, 253, 0.35)",
+                    backgroundColor: "rgba(96, 165, 250, 0.35)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -391,7 +416,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
         })}
       </SimpleGrid>
     ) : (
-      <Paper withBorder radius="md" p="lg" ta="center">
+      <Paper withBorder radius="md" p="lg" ta="center" style={sectionSurfaceStyle}>
         <Text fw={500}>No photos yet</Text>
         <Text size="sm" c="dimmed">
           Upload your first photo to preview the frame layout.
@@ -507,7 +532,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           </Stack>
         </Box>
 
-        <Paper withBorder radius="lg" p="md">
+        <Paper withBorder radius="lg" p="md" style={sectionSurfaceStyle}>
           <Stack gap="xs">
             <TextInput
               label="Album name"
@@ -515,6 +540,14 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
               value={name}
               disabled={creationLocked}
               onChange={(e) => handleNameChange(e.currentTarget.value)}
+              variant="filled"
+              styles={{
+                input: {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+                  borderColor: isDark ? "var(--mantine-color-dark-4)" : "var(--mantine-color-gray-3)",
+                },
+                label: { color: isDark ? "var(--mantine-color-gray-3)" : "var(--mantine-color-dark-5)" },
+              }}
             />
             <Text size="xs" c="dimmed">
               Friendly titles help you find the right set when sending photos to a frame.
@@ -523,7 +556,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
         </Paper>
 
         {showCollaborators && (
-          <Paper withBorder radius="lg" p="md">
+          <Paper withBorder radius="lg" p="md" style={sectionSurfaceStyle}>
             <Stack gap="sm">
               <Group align="flex-end" gap="sm">
                 <TextInput
@@ -539,6 +572,14 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
                     }
                   }}
                   style={{ flex: 1 }}
+                  variant="filled"
+                  styles={{
+                    input: {
+                      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+                      borderColor: isDark ? "var(--mantine-color-dark-4)" : "var(--mantine-color-gray-3)",
+                    },
+                    label: { color: isDark ? "var(--mantine-color-gray-3)" : "var(--mantine-color-dark-5)" },
+                  }}
                 />
                 <Button onClick={handleInvite} disabled={creationLocked}>
                   Invite
@@ -549,7 +590,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           </Paper>
         )}
 
-        <Paper withBorder radius="lg" p="md">
+        <Paper withBorder radius="lg" p="md" style={sectionSurfaceStyle}>
           <Stack gap="sm">
             <Group justify="space-between" align="center">
               <Text fw={600}>Photos</Text>
@@ -593,6 +634,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
       centered
       size="sm"
       zIndex={2000}
+      styles={modalSurfaceStyles}
     >
       <Stack gap="md">
         <Text>
@@ -618,6 +660,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
       centered
       size="sm"
       zIndex={2000}
+      styles={modalSurfaceStyles}
     >
       <Stack gap="md">
         <Text>
@@ -643,6 +686,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
       centered
       size="sm"
       zIndex={2000}
+      styles={modalSurfaceStyles}
     >
       <Stack gap="md">
         <Text>
@@ -674,6 +718,8 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
           withCloseButton={false}
           zIndex={1000}
           overlayProps={{ blur: 4 }}
+          styles={modalSurfaceStyles}
+          padding={0}
         >
           {Content}
         </Drawer>
@@ -686,7 +732,7 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
 
   return (
     <>
-      <Modal
+      <BackgroundModal
         opened={opened}
         onClose={handleClose}
         size="lg"
@@ -694,9 +740,10 @@ export function AlbumEditor({ opened, album, onSave, onDismiss }: AlbumEditorPro
         centered
         padding={0}
         withCloseButton={false}
+        innerPadding={0}
       >
         {Content}
-      </Modal>
+      </BackgroundModal>
       {deleteConfirmModal}
       {deleteAlbumConfirmModal}
       {cancelDraftConfirmModal}
