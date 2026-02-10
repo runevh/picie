@@ -43,8 +43,6 @@ export function Login() {
       password: '',
       username: '',
     },
-    validateInputOnBlur: true,
-    validateInputOnChange: true,
     validate: (values) => {
       const errors: Record<string, string | null> = {};
 
