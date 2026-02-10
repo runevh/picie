@@ -20,6 +20,7 @@ import { notifications } from '@mantine/notifications';
 import { useAuth } from '../contexts/UserContext';
 import { useState } from 'react';
 import { IconX } from '@tabler/icons-react';
+import { Background } from './layout/Background';
 
 export function Login() {
   const { register, login } = useAuth();
@@ -29,9 +30,6 @@ export function Login() {
   const isDark = computedColorScheme === 'dark';
   const surface = isDark ? 'rgba(20, 24, 35, 0.9)' : 'rgba(255,255,255,0.92)';
   const surfaceBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.35)';
-  const shellBackground = isDark
-    ? 'linear-gradient(120deg, rgba(52,125,244,0.24), rgba(132,94,247,0.18), rgba(56,189,248,0.22), rgba(255,255,255,0.06))'
-    : 'linear-gradient(120deg, rgba(52,125,244,0.24), rgba(132,94,247,0.18), rgba(56,189,248,0.22), rgba(255,255,255,0.45))';
   const heroOverlay = isDark
     ? 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))'
     : 'linear-gradient(145deg, rgba(255,255,255,0.35), rgba(255,255,255,0.18))';
@@ -129,11 +127,11 @@ export function Login() {
   };
 
   return (
-    <Box
+    <Background
+      fullHeight
       px="md"
       py={{ base: 'xl', md: 64 }}
-      className="login-shell"
-      style={{ minHeight: '100vh', background: shellBackground, display: 'flex', alignItems: 'center' }}
+      style={{ display: 'flex', alignItems: 'center' }}
     >
       <Container size="sm" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
         <Paper
@@ -241,7 +239,7 @@ export function Login() {
           </Stack>
         </Paper>
       </Container>
-    </Box>
+    </Background>
   );
 }
 

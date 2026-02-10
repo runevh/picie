@@ -27,6 +27,7 @@ import { FrameDetailModal } from "./FrameDetailModal";
 import { useDeviceContext } from "../../contexts/DeviceContext";
 import { notifications } from "@mantine/notifications";
 import { getApiBase } from "../../util/UrlUtil";
+import { Background } from "../layout/Background";
 
 export function FramesPage() {
 
@@ -35,13 +36,6 @@ export function FramesPage() {
   const isDark = computedColorScheme === "dark";
   const surface = isDark ? "rgba(20, 24, 35, 0.9)" : "rgba(255,255,255,0.92)";
   const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.4)";
-  const shellBackground = isDark
-    ? "radial-gradient(circle at 12% 20%, rgba(52,125,244,0.12), transparent 30%)," +
-      "radial-gradient(circle at 82% 10%, rgba(132,94,247,0.14), transparent 26%)," +
-      "linear-gradient(145deg, #0f1629 0%, #0b1221 100%)"
-    : "radial-gradient(circle at 12% 20%, rgba(52,125,244,0.16), transparent 30%)," +
-      "radial-gradient(circle at 82% 10%, rgba(132,94,247,0.12), transparent 26%)," +
-      "linear-gradient(145deg, #f8fbff 0%, #eef2ff 100%)";
   const heroOverlay = isDark
     ? "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
       "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.14), transparent 28%)"
@@ -267,9 +261,9 @@ export function FramesPage() {
   };
 
   return (
-    <Box
+    <Background
       p={{ base: "md", md: "xl" }}
-      style={{ minHeight: "100%", background: shellBackground }}
+      style={{ minHeight: "100%" }}
     >
       <Stack gap="xl">
         <Paper
@@ -467,6 +461,6 @@ export function FramesPage() {
           />
         )}
       </Stack>
-    </Box>
+    </Background>
   );
 }

@@ -1,17 +1,15 @@
-/* Subtle animated gradient used on the login shell */
-@keyframes loginGradient {
+
+@keyframes bgShift {
   0% {
-    background-position: 0% 50%;
+    background-position: 18% 38%;
   }
   50% {
-    background-position: 100% 50%;
+    background-position: 23% 44%;
+  }
+  75% {
+    background-position: 20% 48%;
   }
   100% {
-    background-position: 0% 50%;
+    background-position: 18% 38%;
   }
-}
-
-.login-shell {
-  background-size: 320% 320%;
-  animation: loginGradient 28s ease-in-out infinite;
 }
