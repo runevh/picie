@@ -14,6 +14,7 @@ public:
 
 private:
     void loadCredentials();
+    void provisionIdentityOverSerial(bool force = false);
     bool hasWifiCredentials() const;
     bool ensureWifiConnection();
     bool ensureTcpConnection(bool blocking);
@@ -30,4 +31,5 @@ private:
     unsigned long lastReconnectAttempt_ = 0;
     unsigned long currentReconnectDelay_;
     bool otaInitialized_ = false;
+    uint8_t tcpConnectionFailures_ = 0;
 };
