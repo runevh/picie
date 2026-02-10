@@ -1,12 +1,10 @@
 import {
   Anchor,
-  Box,
   Button,
   Container,
   Divider,
   Group,
   LoadingOverlay,
-  Paper,
   PasswordInput,
   Stack,
   Text,
@@ -21,6 +19,7 @@ import { useAuth } from '../contexts/UserContext';
 import { useState } from 'react';
 import { IconX } from '@tabler/icons-react';
 import { Background } from './layout/Background';
+import { GlassCard } from './layout/GlassCard';
 
 export function Login() {
   const { register, login } = useAuth();
@@ -31,8 +30,8 @@ export function Login() {
   const surface = isDark ? 'rgba(20, 24, 35, 0.9)' : 'rgba(255,255,255,0.92)';
   const surfaceBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.35)';
   const heroOverlay = isDark
-    ? 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))'
-    : 'linear-gradient(145deg, rgba(255,255,255,0.35), rgba(255,255,255,0.18))';
+    ? 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))'
+    : 'linear-gradient(145deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12))';
 
   const form = useForm({
     initialValues: {
@@ -134,31 +133,14 @@ export function Login() {
       style={{ display: 'flex', alignItems: 'center' }}
     >
       <Container size="sm" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <Paper
-          withBorder
-          radius="xl"
+        <GlassCard
           p={{ base: 'lg', md: 'xl' }}
+          overlay={heroOverlay}
           style={{
-            position: 'relative',
-            overflow: 'hidden',
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark
-              ? '0 30px 120px -70px rgba(0,0,0,0.75)'
-              : '0 30px 120px -60px rgba(15, 23, 42, 0.5)',
-            backdropFilter: 'blur(10px)',
             width: '100%',
             maxWidth: 520,
           }}
         >
-          <Box
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: heroOverlay,
-              pointerEvents: 'none',
-            }}
-          />
           <LoadingOverlay visible={submitting} zIndex={1000} overlayProps={{ radius: 'sm', blur: 1 }} />
             <Stack gap="lg" style={{ position: 'relative', zIndex: 1 }}>
               <Stack gap="sm">
@@ -237,7 +219,7 @@ export function Login() {
               </Group>
             </form>
           </Stack>
-        </Paper>
+        </GlassCard>
       </Container>
     </Background>
   );

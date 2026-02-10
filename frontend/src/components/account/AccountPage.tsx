@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Group,
-  Paper,
   PasswordInput,
   Stack,
   Text,
@@ -33,6 +32,8 @@ import {
   IconLogout,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/UserContext";
+import { GlassCard } from "../layout/GlassCard";
+import { PageHero } from "../layout/PageHero";
 
 export function AccountPage() {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -46,13 +47,10 @@ export function AccountPage() {
 
   const fullName = user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "Unknown user";
   const isDark = computedColorScheme === "dark";
-  const surface = isDark ? "rgba(18, 22, 33, 0.9)" : "rgba(255, 255, 255, 0.9)";
   const surfaceBorder = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.45)";
   const heroOverlay = isDark
-    ? "radial-gradient(circle at 25% 40%, rgba(52, 125, 244, 0.1), transparent 30%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132, 94, 247, 0.14), transparent 28%)"
-    : "radial-gradient(circle at 25% 40%, rgba(52, 125, 244, 0.12), transparent 30%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132, 94, 247, 0.12), transparent 28%)";
+    ? "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
+    : "linear-gradient(145deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12))";
   const passwordStrength = Math.min(Math.round((newPassword.length / 14) * 100), 100);
   const passwordStatus =
     passwordStrength >= 80 ? "Looking solid" : passwordStrength >= 50 ? "Keep hardening" : "Start fresh";
@@ -89,107 +87,86 @@ export function AccountPage() {
       }}
     >
       <Stack gap="xl">
-        <Paper
-          withBorder
-          radius="xl"
-          p="xl"
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            borderColor: surfaceBorder,
-            background: surface,
-            backdropFilter: "blur(10px)",
-            boxShadow: isDark ? "0 24px 120px -80px rgba(0,0,0,0.75)" : "0 30px 120px -60px rgba(15, 23, 42, 0.5)",
-          }}
-        >
-          <Box
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: heroOverlay,
-              pointerEvents: "none",
-            }}
-          />
-          <Group align="flex-start" justify="space-between" gap="xl" wrap="wrap">
-            <Stack gap="sm" style={{ position: "relative", zIndex: 1 }}>
-              <Group gap="xs">
-                <Badge variant="light" color="blue">
-                  Account
+        <PageHero
+          overlay={heroOverlay}
+          badge={null}
+          title={
+            <Title order={1} size="h2" lh={1.2}>
+              {fullName || "Account owner"}
+            </Title>
+          }
+          description={
+            <Text c="dimmed" size="sm">
+              A clearer, more focused space to keep your identity and security in sync.
+            </Text>
+          }
+          meta={
+            <Group gap="sm" wrap="wrap">
+              <Badge variant="outline" color="gray" leftSection={<IconMail size={14} />}>
+                {user?.email ?? "unknown"}
+              </Badge>
+              {user?.username && (
+                <Badge variant="outline" color="gray" leftSection={<IconUser size={14} />}>
+                  @{user.username}
                 </Badge>
-                {user?.admin && <Badge color="grape">Admin</Badge>}
-              </Group>
-              <Title order={2} lh={1.2}>
-                {fullName || "Account owner"}
-              </Title>
-              <Text c="dimmed" size="sm">
-                A clearer, more focused space to keep your identity and security in sync.
+              )}
+              <Badge variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
+                Synced profile
+              </Badge>
+            </Group>
+          }
+          footer={
+            <Stack gap={6} w={{ base: "100%", sm: 320 }}>
+              <Text size="xs" c="dimmed" fw={600}>
+                Appearance
               </Text>
-              <Group gap="sm" wrap="wrap">
-                <Badge variant="outline" color="gray" leftSection={<IconMail size={14} />}>
-                  {user?.email ?? "unknown"}
-                </Badge>
-                {user?.username && (
-                  <Badge variant="outline" color="gray" leftSection={<IconUser size={14} />}>
-                    @{user.username}
-                  </Badge>
-                )}
-                <Badge variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
-                  Synced profile
-                </Badge>
-              </Group>
-              <Stack gap={6} w={{ base: "100%", sm: 320 }}>
-                <Text size="xs" c="dimmed" fw={600}>
-                  Appearance
-                </Text>
-                <SegmentedControl
-                  value={colorScheme}
-                  onChange={(value) => setColorScheme(value as "light" | "dark" | "auto")}
-                  radius="md"
-                  size="xs"
-                  fullWidth
-                  data={[
-                    {
-                      value: "light",
-                      label: (
-                        <Group gap={6} justify="center">
-                          <IconSun size={14} />
-                          <Text size="xs">Light</Text>
-                        </Group>
-                      ),
-                    },
-                    {
-                      value: "dark",
-                      label: (
-                        <Group gap={6} justify="center">
-                          <IconMoon size={14} />
-                          <Text size="xs">Dark</Text>
-                        </Group>
-                      ),
-                    },
-                    {
-                      value: "auto",
-                      label: (
-                        <Group gap={6} justify="center">
-                          <IconDeviceLaptop size={14} />
-                          <Text size="xs">System</Text>
-                        </Group>
-                      ),
-                    },
-                  ]}
-                />
-              </Stack>
+              <SegmentedControl
+                value={colorScheme}
+                onChange={(value) => setColorScheme(value as "light" | "dark" | "auto")}
+                radius="md"
+                size="xs"
+                fullWidth
+                data={[
+                  {
+                    value: "light",
+                    label: (
+                      <Group gap={6} justify="center">
+                        <IconSun size={14} />
+                        <Text size="xs">Light</Text>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: "dark",
+                    label: (
+                      <Group gap={6} justify="center">
+                        <IconMoon size={14} />
+                        <Text size="xs">Dark</Text>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: "auto",
+                    label: (
+                      <Group gap={6} justify="center">
+                        <IconDeviceLaptop size={14} />
+                        <Text size="xs">System</Text>
+                      </Group>
+                    ),
+                  },
+                ]}
+              />
             </Stack>
-
-            <Paper
-              withBorder
+          }
+          aside={
+            <GlassCard
               radius="lg"
               p="md"
-              style={{
-                minWidth: 260,
-                background: isDark ? "rgba(17, 23, 34, 0.85)" : "rgba(255, 255, 255, 0.82)",
-                borderColor: surfaceBorder,
-                backdropFilter: "blur(8px)",
-              }}
+              surfaceColor={isDark ? "rgba(17, 23, 34, 0.85)" : "rgba(255, 255, 255, 0.82)"}
+              borderColor={surfaceBorder}
+              blur={8}
+              shadow={isDark ? "0 16px 50px -50px rgba(0,0,0,0.7)" : "0 16px 50px -40px rgba(15, 23, 42, 0.5)"}
+              style={{ minWidth: 260 }}
             >
               <Group align="flex-start" gap="sm">
                 <ThemeIcon variant="light" color="teal">
@@ -200,32 +177,27 @@ export function AccountPage() {
                   <Text size="xs" c="dimmed">
                     Identity is up to date. You can adjust details anytime below.
                   </Text>
-              <Group gap="xs" wrap="wrap" mt={6}>
-                <Badge size="sm" variant="light" color="teal">
-                  Active session
-                </Badge>
-                <Badge size="sm" variant="light" color="blue">
-                  Clean layout
-                </Badge>
+                  <Group gap="xs" wrap="wrap" mt={6}>
+                    <Badge size="sm" variant="light" color="teal">
+                      Active session
+                    </Badge>
+                    <Badge size="sm" variant="light" color="blue">
+                      Clean layout
+                    </Badge>
+                  </Group>
+                </Stack>
               </Group>
-            </Stack>
-          </Group>
-        </Paper>
-          </Group>
-        </Paper>
+            </GlassCard>
+          }
+        />
 
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-          <Paper
-            withBorder
+          <GlassCard
             radius="lg"
-          p="lg"
-          style={{
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 18px 60px -50px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.35)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+            p="lg"
+            shadow={isDark ? "0 18px 60px -50px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.35)"}
+            blur={8}
+          >
             <Stack gap="md">
               <Group justify="space-between" align="flex-start" wrap="wrap">
                 <Group gap="sm">
@@ -265,19 +237,14 @@ export function AccountPage() {
                 </Group>
               </Stack>
             </Stack>
-          </Paper>
+          </GlassCard>
 
-          <Paper
-            withBorder
+          <GlassCard
             radius="lg"
-          p="lg"
-          style={{
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 18px 60px -50px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.35)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+            p="lg"
+            shadow={isDark ? "0 18px 60px -50px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.35)"}
+            blur={8}
+          >
             <Stack gap="md">
               <Group justify="space-between" align="flex-start" wrap="wrap">
                 <Group gap="sm">
@@ -345,20 +312,19 @@ export function AccountPage() {
                 </Group>
               </Stack>
             </Stack>
-          </Paper>
+          </GlassCard>
         </SimpleGrid>
 
-        <Paper
-          withBorder
+        <GlassCard
           radius="xl"
           p="xl"
-          style={{
-            background: isDark
+          surfaceColor={
+            isDark
               ? "linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(15, 23, 42, 0.8))"
-              : "linear-gradient(135deg, rgba(255, 107, 129, 0.18), rgba(255, 255, 255, 0.9))",
-            borderColor: isDark ? "rgba(239, 68, 68, 0.4)" : "rgba(255, 107, 129, 0.35)",
-            boxShadow: isDark ? "0 26px 80px -60px rgba(239, 68, 68, 0.4)" : "0 26px 80px -60px rgba(255, 107, 129, 0.6)",
-          }}
+              : "linear-gradient(135deg, rgba(255, 107, 129, 0.18), rgba(255, 255, 255, 0.9))"
+          }
+          borderColor={isDark ? "rgba(239, 68, 68, 0.4)" : "rgba(255, 107, 129, 0.35)"}
+          shadow={isDark ? "0 26px 80px -60px rgba(239, 68, 68, 0.4)" : "0 26px 80px -60px rgba(255, 107, 129, 0.6)"}
         >
           <Stack gap="md">
             <Alert icon={<IconAlertTriangle size={16} />} color="red" variant="light" title="Danger zone">
@@ -378,7 +344,7 @@ export function AccountPage() {
               </Button>
             </Group>
           </Stack>
-        </Paper>
+        </GlassCard>
       </Stack>
     </Box>
   );

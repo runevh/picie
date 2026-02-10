@@ -15,6 +15,9 @@ import {
   useComputedColorScheme,
 } from "@mantine/core";
 import { Background } from "../layout/Background";
+import { GlassCard } from "../layout/GlassCard";
+import { PageHero } from "../layout/PageHero";
+import { MetricTile } from "../layout/MetricTile";
 import {
   IconArrowRight,
   IconDeviceMobile,
@@ -56,10 +59,8 @@ export function HomePage() {
   const surface = isDark ? "rgba(20, 24, 35, 0.9)" : "rgba(255,255,255,0.92)";
   const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.4)";
   const heroOverlay = isDark
-    ? "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.14), transparent 28%)"
-    : "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.12), transparent 28%)";
+    ? "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
+    : "linear-gradient(145deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12))";
   const liftShadow = isDark ? "0 18px 60px -40px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.4)";
   const cardBaseShadow = isDark ? "0 16px 50px -50px rgba(0,0,0,0.65)" : "none";
 
@@ -90,124 +91,51 @@ export function HomePage() {
   return (
     <Background p={{ base: "md", md: "xl" }} style={{ minHeight: "100%" }}>
       <Stack gap="xl">
-        <Paper
-          radius="xl"
-          p="xl"
-          withBorder
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 30px 120px -70px rgba(0,0,0,0.75)" : "0 30px 120px -60px rgba(15, 23, 42, 0.5)",
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          <Box
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: heroOverlay,
-              pointerEvents: "none",
-            }}
-          />
-          <Group align="flex-start" justify="space-between" wrap="wrap" gap="xl" style={{ position: "relative", zIndex: 1 }}>
-            <Stack gap="md" maw={620}>
-              <Badge variant="light" color="blue" size="lg" radius="md" leftSection={<IconRadar size={16} />}>
-                Control surface
+        <PageHero
+          overlay={heroOverlay}
+          badge={null}
+          title={
+            <Title order={1} size="h2" lh={1.2}>
+              Welcome back. Everything is ready for your next drop.
+            </Title>
+          }
+          description={
+            <Text c="dimmed" size="sm">
+              Curate albums, keep frames aligned, and nudge collaborators—all from a calmer, cleaner cockpit.
+            </Text>
+          }
+          actions={
+            <Group gap="md" wrap="wrap">
+              <Button size="md" leftSection={<IconPhoto size={18} />} onClick={() => navigate("/photos")}>
+                Go to albums
+              </Button>
+              <Button
+                size="md"
+                variant="default"
+                leftSection={<IconDeviceMobile size={18} />}
+                onClick={() => navigate("/frames")}
+              >
+                View frames
+              </Button>
+            </Group>
+          }
+          meta={
+            <Group gap="sm" wrap="wrap">
+              <Badge variant="light" color="blue">
+                {albums.length} albums live
               </Badge>
-              <Title order={1} size="h2" lh={1.2}>
-                Welcome back. Everything is ready for your next drop.
-              </Title>
-              <Text c="dimmed" size="sm">
-                Curate albums, keep frames aligned, and nudge collaborators—all from a calmer, cleaner cockpit.
-              </Text>
-              <Group gap="md" wrap="wrap">
-                <Button size="md" leftSection={<IconPhoto size={18} />} onClick={() => navigate("/photos")}>
-                  Go to albums
-                </Button>
-                <Button
-                  size="md"
-                  variant="default"
-                  leftSection={<IconDeviceMobile size={18} />}
-                  onClick={() => navigate("/frames")}
-                >
-                  View frames
-                </Button>
-              </Group>
-              <Group gap="sm" wrap="wrap">
-                <Badge variant="light" color="blue">
-                  {albums.length} albums live
-                </Badge>
-                <Badge variant="light" color="gray">
-                  {stats[1].value} photos stored
-                </Badge>
-                <Badge variant="light" color="teal">
-                  {totalCollaborators} collaborators
-                </Badge>
-              </Group>
-            </Stack>
+              <Badge variant="light" color="gray">
+                {stats[1].value} photos stored
+              </Badge>
+              <Badge variant="light" color="teal">
+                {totalCollaborators} collaborators
+              </Badge>
+            </Group>
+          }
+          aside={null}
+        />
 
-            <Paper
-              withBorder
-              radius="lg"
-              p="md"
-              style={{
-                minWidth: 260,
-                background: surface,
-                borderColor: surfaceBorder,
-                boxShadow: isDark ? "0 16px 50px -50px rgba(0,0,0,0.7)" : "0 16px 50px -40px rgba(15, 23, 42, 0.5)",
-                backdropFilter: "blur(8px)",
-              }}
-            >
-              <Stack gap="sm">
-                <Group gap="xs">
-                  <ThemeIcon variant="light" color="indigo" radius="xl">
-                    <IconStack2 size={16} />
-                  </ThemeIcon>
-                  <Text fw={600}>System pulse</Text>
-                </Group>
-                <Text size="xs" c="dimmed">
-                  A quick health view of what you touched last.
-                </Text>
-                <Stack gap={6}>
-                  <Group justify="space-between">
-                    <Text size="xs" c="dimmed">
-                      Albums in motion
-                    </Text>
-                    <Text size="xs" fw={600}>
-                      {albums.length}
-                    </Text>
-                  </Group>
-                  <Progress value={Math.min(albums.length * 12, 100)} radius="xl" size="xs" color="blue" />
-                </Stack>
-                <Stack gap={6}>
-                  <Group justify="space-between">
-                    <Text size="xs" c="dimmed">
-                      Total photos
-                    </Text>
-                    <Text size="xs" fw={600}>
-                      {stats[1].value}
-                    </Text>
-                  </Group>
-                  <Progress value={Math.min(stats[1].value / 2, 100)} radius="xl" size="xs" color="teal" />
-                </Stack>
-              </Stack>
-            </Paper>
-          </Group>
-        </Paper>
-
-        <Paper
-          radius="lg"
-          withBorder
-          p="lg"
-          style={{
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 22px 80px -70px rgba(0,0,0,0.7)" : "0 22px 80px -60px rgba(15, 23, 42, 0.4)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+        <GlassCard radius="lg" p="lg" shadow={isDark ? "0 22px 80px -70px rgba(0,0,0,0.7)" : "0 22px 80px -60px rgba(15, 23, 42, 0.4)"}>
           <Stack gap="md">
             <Group align="baseline" justify="space-between" wrap="wrap">
               <Title order={3} size="h4">
@@ -263,71 +191,9 @@ export function HomePage() {
               ))}
             </SimpleGrid>
           </Stack>
-        </Paper>
+        </GlassCard>
 
-        <Paper
-          radius="lg"
-          withBorder
-          p="lg"
-          style={{
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 18px 70px -70px rgba(0,0,0,0.65)" : "0 18px 70px -60px rgba(15, 23, 42, 0.35)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          <Stack gap="md">
-            <Group align="baseline" justify="space-between" wrap="wrap">
-              <Title order={3} size="h4">
-                At a glance
-              </Title>
-              <Text size="sm" c="dimmed">
-                Quick telemetry on what you’ve built.
-              </Text>
-            </Group>
-            <Divider />
-            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-              {stats.map((stat, index) => (
-                <Paper
-                  key={stat.label}
-                  radius="md"
-                  withBorder
-                  p="md"
-                  style={{
-                    background:
-                      index === 0
-                        ? isDark
-                          ? "linear-gradient(145deg, rgba(52,125,244,0.18), rgba(20,24,35,0.9))"
-                          : "linear-gradient(145deg, rgba(52,125,244,0.12), #fff)"
-                        : surface,
-                    borderColor: surfaceBorder,
-                  }}
-                >
-                  <Stack gap={6}>
-                    <Text fw={600} size="xl">
-                      {stat.value}
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      {stat.label}
-                    </Text>
-                  </Stack>
-                </Paper>
-              ))}
-            </SimpleGrid>
-          </Stack>
-        </Paper>
-
-        <Paper
-          radius="lg"
-          withBorder
-          p="lg"
-          style={{
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 18px 70px -70px rgba(0,0,0,0.65)" : "0 18px 70px -60px rgba(15, 23, 42, 0.35)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+        <GlassCard radius="lg" p="lg" shadow={isDark ? "0 18px 70px -70px rgba(0,0,0,0.65)" : "0 18px 70px -60px rgba(15, 23, 42, 0.35)"}>
           <Stack gap="md">
             <Group align="baseline" justify="space-between" wrap="wrap">
               <Group gap="sm">
@@ -398,7 +264,7 @@ export function HomePage() {
               </Text>
             )}
           </Stack>
-        </Paper>
+        </GlassCard>
       </Stack>
     </Background>
   );

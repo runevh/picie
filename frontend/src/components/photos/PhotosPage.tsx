@@ -26,6 +26,10 @@ import { useAlbumEditor } from "./AlbumEditor";
 import { usePhoto } from "../../contexts/PhotoContext";
 import { Album } from "../../types/Photos";
 import { Background } from "../layout/Background";
+import { GlassCard } from "../layout/GlassCard";
+import { PageHero } from "../layout/PageHero";
+import { PulseCard } from "../layout/PulseCard";
+import { MetricTile } from "../layout/MetricTile";
 
 export function PhotosPage() {
   const isMobile = useIsMobile();
@@ -34,10 +38,8 @@ export function PhotosPage() {
   const surface = isDark ? "rgba(20, 24, 35, 0.9)" : "rgba(255,255,255,0.92)";
   const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.4)";
   const heroOverlay = isDark
-    ? "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.14), transparent 28%)"
-    : "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.12), transparent 28%)";
+    ? "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
+    : "linear-gradient(145deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12))";
   const liftShadow = isDark ? "0 18px 60px -40px rgba(0,0,0,0.65)" : "0 18px 60px -40px rgba(15, 23, 42, 0.4)";
   const cardBaseShadow = isDark ? "0 16px 50px -50px rgba(0,0,0,0.65)" : "none";
   const [opened, { toggle, close }] = useDisclosure(false);
@@ -171,117 +173,51 @@ const stats = useMemo(
       style={{ minHeight: "100%" }}
     >
       <Stack gap="xl">
-        <Paper
-          radius="xl"
-          p="xl"
-          withBorder
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 30px 120px -70px rgba(0,0,0,0.75)" : "0 30px 120px -60px rgba(15, 23, 42, 0.5)",
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          <Box
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: heroOverlay,
-              pointerEvents: "none",
-            }}
-          />
-          <Group align="flex-start" justify="space-between" wrap="wrap" gap="xl" style={{ position: "relative", zIndex: 1 }}>
-            <Stack gap="md" maw={620}>
-              <Badge variant="light" color="blue" size="lg" radius="md" leftSection={<IconRadar size={16} />}>
-                Library
-              </Badge>
-              <Title order={1} size="h2" lh={1.2}>
-                My Albums
-              </Title>
-              <Text c="dimmed" size="sm">
-                Keep your favorite moments organized, invite collaborators, and send the best ones straight to your frames.
-              </Text>
-              <Group gap="md" wrap="wrap">
-                <Button
-                  px={12}
-                  variant="filled"
-                  title="Create Album"
-                  onClick={handleNewAlbum}
-                  leftSection={<IconPlus size={18} />}
-                >
-                  New album
-                </Button>
-                <Button
-                  variant="default"
-                  leftSection={<IconFilter size={16} />}
-                  onClick={toggle}
-                >
-                  Filters
-                </Button>
-              </Group>
-              <Group gap="sm" wrap="wrap">
-                <Badge variant="light" color="blue">
-                  {albums.length} albums
-                </Badge>
-                <Badge variant="light" color="teal">
-                  {totalPhotos} photos
-                </Badge>
-              </Group>
-            </Stack>
+        <PageHero
+          overlay={heroOverlay}
+          badge={null}
+          title={
+            <Title order={1} size="h2" lh={1.2}>
+              My Albums
+            </Title>
+          }
+          description="Keep your favorite moments organized, invite collaborators, and send the best ones straight to your frames."
+          actions={
+            <Group gap="md" wrap="wrap">
+              <Button
+                px={12}
+                variant="filled"
+                title="Create Album"
+                onClick={handleNewAlbum}
+                leftSection={<IconPlus size={18} />}
+              >
+                New album
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconFilter size={16} />}
+                onClick={toggle}
+              >
+                Filters
+              </Button>
+            </Group>
+          }
+          meta={null}
+          aside={
+            <PulseCard
+              icon={IconFolder}
+              iconColor="indigo"
+              title="Library pulse"
+              description="Snapshot of what's inside your library."
+              shadow="0 10px 26px -20px rgba(15, 23, 42, 0.35)"
+              blur={8}
+              style={{ minWidth: 260, background: surface, borderColor: surfaceBorder }}
+              items={stats.map(({ label, value }) => ({ label, value, divider: true }))}
+            />
+          }
+        />
 
-            <Paper
-              withBorder
-              radius="lg"
-              p="md"
-              style={{
-                minWidth: 260,
-                background: surface,
-                borderColor: surfaceBorder,
-                boxShadow: isDark ? "0 16px 50px -50px rgba(0,0,0,0.7)" : "0 16px 50px -40px rgba(15, 23, 42, 0.5)",
-                backdropFilter: "blur(8px)",
-              }}
-            >
-              <Stack gap="sm">
-                <Group gap="xs">
-                  <ThemeIcon variant="light" color="indigo" radius="xl">
-                    <IconFolder size={16} />
-                  </ThemeIcon>
-                  <Text fw={600}>Library pulse</Text>
-                </Group>
-                <Text size="xs" c="dimmed">
-                  Snapshot of what's inside your library.
-                </Text>
-                {stats.map(({ label, value }) => (
-                  <Stack key={label} gap={6}>
-                    <Group justify="space-between">
-                      <Text size="xs" c="dimmed">
-                        {label}
-                      </Text>
-                      <Text size="xs" fw={600}>
-                        {value}
-                      </Text>
-                    </Group>
-                    <Divider opacity={0.1} />
-                  </Stack>
-                ))}
-              </Stack>
-            </Paper>
-          </Group>
-        </Paper>
-
-        <Paper
-          withBorder
-          radius="lg"
-          p="lg"
-          style={{
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 22px 80px -70px rgba(0,0,0,0.7)" : "0 22px 80px -60px rgba(15, 23, 42, 0.4)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+        <GlassCard radius="lg" p="lg" shadow={isDark ? "0 22px 80px -70px rgba(0,0,0,0.7)" : "0 22px 80px -60px rgba(15, 23, 42, 0.4)"}>
           <Stack gap="md">
             <Group align="baseline" justify="space-between" wrap="wrap">
               <Title order={3} size="h4">
@@ -293,42 +229,34 @@ const stats = useMemo(
             </Group>
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
               {stats.map(({ label, value, description, icon }) => (
-                <Paper
+                <MetricTile
                   key={label}
-                  radius="md"
-                  withBorder
-                  p="md"
-                  style={{
-                    background:
-                      label === "Albums"
-                        ? isDark
-                          ? "linear-gradient(145deg, rgba(52,125,244,0.18), rgba(20,24,35,0.9))"
-                          : "linear-gradient(145deg, rgba(52,125,244,0.12), #fff)"
-                        : surface,
-                    borderColor: surfaceBorder,
-                  }}
-                >
-                  <Stack gap={6}>
+                  label={
                     <Group gap="xs">
                       <ThemeIcon variant="light" color="blue" size="sm">
                         {icon}
                       </ThemeIcon>
                       <Text fw={600}>{label}</Text>
                     </Group>
-                    <Text fw={600} size="xl">
-                      {value}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {description}
-                    </Text>
-                  </Stack>
-                </Paper>
+                  }
+                  value={value}
+                  description={description}
+                  highlight={label === "Albums"}
+                  surfaceColor={
+                    label === "Albums"
+                      ? isDark
+                        ? "linear-gradient(150deg, rgba(72,187,255,0.2), rgba(18,28,48,0.9))"
+                        : "linear-gradient(150deg, rgba(110,205,255,0.24), rgba(244,248,255,0.97))"
+                      : surface
+                  }
+                  borderColor={surfaceBorder}
+                />
               ))}
             </SimpleGrid>
           </Stack>
-        </Paper>
+        </GlassCard>
 
-        <Paper withBorder radius="lg" p="md" style={{ background: surface, borderColor: surfaceBorder, boxShadow: cardBaseShadow }}>
+        <GlassCard radius="lg" p="md" shadow={cardBaseShadow} style={{ background: surface }}>
           <Box
             ref={containerRef}
             style={{
@@ -388,7 +316,7 @@ const stats = useMemo(
               </Stack>
             </Paper>
           </Box>
-        </Paper>
+        </GlassCard>
       </Stack>
     </Background>
   );

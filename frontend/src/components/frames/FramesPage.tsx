@@ -7,7 +7,6 @@ import {
   Checkbox,
   Flex,
   Group,
-  Paper,
   Popover,
   Select,
   Stack,
@@ -28,6 +27,9 @@ import { useDeviceContext } from "../../contexts/DeviceContext";
 import { notifications } from "@mantine/notifications";
 import { getApiBase } from "../../util/UrlUtil";
 import { Background } from "../layout/Background";
+import { GlassCard } from "../layout/GlassCard";
+import { PageHero } from "../layout/PageHero";
+import { PulseCard } from "../layout/PulseCard";
 
 export function FramesPage() {
 
@@ -37,10 +39,8 @@ export function FramesPage() {
   const surface = isDark ? "rgba(20, 24, 35, 0.9)" : "rgba(255,255,255,0.92)";
   const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.4)";
   const heroOverlay = isDark
-    ? "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.14), transparent 28%)"
-    : "radial-gradient(circle at 30% 30%, rgba(52,125,244,0.15), transparent 32%)," +
-      "radial-gradient(circle at 80% 30%, rgba(132,94,247,0.12), transparent 28%)";
+    ? "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
+    : "linear-gradient(145deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12))";
   const [opened, { toggle, close }] = useDisclosure(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("lastModified");
@@ -266,169 +266,110 @@ export function FramesPage() {
       style={{ minHeight: "100%" }}
     >
       <Stack gap="xl">
-        <Paper
-          radius="xl"
-          p="xl"
-          withBorder
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 30px 120px -70px rgba(0,0,0,0.75)" : "0 30px 120px -60px rgba(15, 23, 42, 0.5)",
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          <Box
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: heroOverlay,
-              pointerEvents: "none",
-            }}
-          />
-          <Flex justify="space-between" align="flex-start" wrap="wrap" gap="md" style={{ position: "relative", zIndex: 1 }}>
-            <Stack gap="md">
-              <Badge variant="light" color="blue" size="lg" radius="md" leftSection={<IconRadar size={16} />}>
-                Fleet
+        <PageHero
+          overlay={heroOverlay}
+          badge={null}
+          title={
+            <Title order={1} size="h2">
+              My Frames
+            </Title>
+          }
+          description={
+            <Text c="dimmed" size="sm">
+              Keep track of every connected display, see who it is shared with, and jump into fine-grained controls.
+            </Text>
+          }
+          actions={
+            <Group gap="sm" wrap="wrap">
+              <Button px={12} variant="filled" title="Add frame" onClick={openFrameAdder} leftSection={<IconPlus size={18} />}>
+                New frame
+              </Button>
+              <Popover width={260} position="bottom-end" withArrow shadow="md" opened={opened}>
+                <Popover.Target>
+                  <Button
+                    leftSection={<IconFilter size={16} />}
+                    variant="default"
+                    onClick={toggle}
+                  >
+                    Filters
+                  </Button>
+                </Popover.Target>
+                <Popover.Dropdown>
+                  <Stack>
+                    <TextInput
+                      label="Search by name"
+                      placeholder="Frame name..."
+                      value={search}
+                      onChange={(e) => setSearch(e.currentTarget.value)}
+                    />
+
+                    <Select
+                      label="Sort by"
+                      data={[
+                        { label: "Last modified", value: "lastModified" },
+                        { label: "Date created", value: "dateCreated" },
+                        { label: "Name (A-Z)", value: "name" },
+                      ]}
+                      value={sortBy}
+                      onChange={(value) => setSortBy(value || "lastModified")}
+                    />
+
+                    <Checkbox
+                      label="Shared only"
+                      checked={sharedOnly}
+                      onChange={(e) => setSharedOnly(e.currentTarget.checked)}
+                    />
+
+                    <Group justify="space-between" mt="xs">
+                      <Button variant="light" size="xs" onClick={() => {
+                        setSearch("");
+                        setSortBy("lastModified");
+                        setSharedOnly(false);
+                        close();
+                      }}>
+                        Clear
+                      </Button>
+                      <Button size="xs" onClick={close}>
+                        Apply
+                      </Button>
+                    </Group>
+                  </Stack>
+                </Popover.Dropdown>
+              </Popover>
+            </Group>
+          }
+          meta={
+            <Group gap="sm" wrap="wrap">
+              <Badge variant="light" color="blue">
+                {frames.length} frames
               </Badge>
-              <Title order={2}>My Frames</Title>
-              <Text c="dimmed" size="sm">
-                Keep track of every connected display, see who it is shared with, and jump into fine-grained controls.
-              </Text>
-              <Group gap="sm" wrap="wrap">
-                <Button px={12} variant="filled" title="Add frame" onClick={openFrameAdder} leftSection={<IconPlus size={18} />}>
-                  New frame
-                </Button>
-                <Popover width={260} position="bottom-end" withArrow shadow="md" opened={opened}>
-                  <Popover.Target>
-                    <Button
-                      leftSection={<IconFilter size={16} />}
-                      variant="default"
-                      onClick={toggle}
-                    >
-                      Filters
-                    </Button>
-                  </Popover.Target>
-                  <Popover.Dropdown>
-                    <Stack>
-                      <TextInput
-                        label="Search by name"
-                        placeholder="Frame name..."
-                        value={search}
-                        onChange={(e) => setSearch(e.currentTarget.value)}
-                      />
+              <Badge variant="light" color="teal">
+                {onlineCount} online
+              </Badge>
+              <Badge variant="light" color="gray">
+                {sharedCount} shared
+              </Badge>
+            </Group>
+          }
+          aside={
+            <PulseCard
+              icon={IconDeviceDesktop}
+              iconColor="indigo"
+              title="Fleet pulse"
+              description="Live stats for your displays at a glance."
+              shadow={isDark ? "0 16px 50px -50px rgba(0,0,0,0.7)" : "0 16px 50px -40px rgba(15, 23, 42, 0.5)"}
+              blur={8}
+              style={{ minWidth: 260, background: surface, borderColor: surfaceBorder }}
+              items={[
+                { label: "Total frames", value: frames.length },
+                { label: "Online now", value: onlineCount },
+                { label: "Shared", value: sharedCount },
+              ]}
+            />
+          }
+        />
 
-                      <Select
-                        label="Sort by"
-                        data={[
-                          { label: "Last modified", value: "lastModified" },
-                          { label: "Date created", value: "dateCreated" },
-                          { label: "Name (A-Z)", value: "name" },
-                        ]}
-                        value={sortBy}
-                        onChange={(value) => setSortBy(value || "lastModified")}
-                      />
-
-                      <Checkbox
-                        label="Shared only"
-                        checked={sharedOnly}
-                        onChange={(e) => setSharedOnly(e.currentTarget.checked)}
-                      />
-
-                      <Group justify="space-between" mt="xs">
-                        <Button variant="light" size="xs" onClick={() => {
-                          setSearch("");
-                          setSortBy("lastModified");
-                          setSharedOnly(false);
-                          close();
-                        }}>
-                          Clear
-                        </Button>
-                        <Button size="xs" onClick={close}>
-                          Apply
-                        </Button>
-                      </Group>
-                    </Stack>
-                  </Popover.Dropdown>
-                </Popover>
-              </Group>
-              <Group gap="sm" wrap="wrap">
-                <Badge variant="light" color="blue">
-                  {frames.length} frames
-                </Badge>
-                <Badge variant="light" color="teal">
-                  {onlineCount} online
-                </Badge>
-                <Badge variant="light" color="gray">
-                  {sharedCount} shared
-                </Badge>
-              </Group>
-            </Stack>
-            <Paper
-              withBorder
-              radius="lg"
-              p="md"
-              style={{
-                minWidth: 260,
-                background: surface,
-                borderColor: surfaceBorder,
-                boxShadow: isDark ? "0 16px 50px -50px rgba(0,0,0,0.7)" : "0 16px 50px -40px rgba(15, 23, 42, 0.5)",
-                backdropFilter: "blur(8px)",
-              }}
-            >
-              <Stack gap="sm">
-                <Group gap="xs">
-                  <ThemeIcon variant="light" color="indigo" radius="xl">
-                    <IconDeviceDesktop size={16} />
-                  </ThemeIcon>
-                  <Text fw={600}>Fleet pulse</Text>
-                </Group>
-                <Text size="xs" c="dimmed">
-                  Live stats for your displays at a glance.
-                </Text>
-                <Stack gap={8}>
-                  <Group justify="space-between">
-                    <Text size="xs" c="dimmed">
-                      Total frames
-                    </Text>
-                    <Text size="xs" fw={600}>
-                      {frames.length}
-                    </Text>
-                  </Group>
-                  <Group justify="space-between">
-                    <Text size="xs" c="dimmed">
-                      Online now
-                    </Text>
-                    <Text size="xs" fw={600}>
-                      {onlineCount}
-                    </Text>
-                  </Group>
-                  <Group justify="space-between">
-                    <Text size="xs" c="dimmed">
-                      Shared
-                    </Text>
-                    <Text size="xs" fw={600}>
-                      {sharedCount}
-                    </Text>
-                  </Group>
-                </Stack>
-              </Stack>
-            </Paper>
-          </Flex>
-        </Paper>
-
-        <Paper
-          withBorder
-          radius="lg"
-          p="lg"
-          style={{
-            background: surface,
-            borderColor: surfaceBorder,
-            boxShadow: isDark ? "0 18px 70px -70px rgba(0,0,0,0.65)" : "0 18px 70px -60px rgba(15, 23, 42, 0.35)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+        <GlassCard radius="lg" p="lg" shadow={isDark ? "0 18px 70px -70px rgba(0,0,0,0.65)" : "0 18px 70px -60px rgba(15, 23, 42, 0.35)"}>
           {filteredFrames.length > 0 ? (
             <Box
               style={{
@@ -448,7 +389,7 @@ export function FramesPage() {
               <Text c="dimmed">No frames match your filters.</Text>
             </Center>
           )}
-        </Paper>
+        </GlassCard>
 
         {activeFrame && (
           <FrameDetailModal
