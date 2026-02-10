@@ -15,11 +15,12 @@ const sequelize = process.env.NODE_ENV !== 'test' ? (new Sequelize(
         logging: false
     });
 
-sequelize.sync({ force: false })
+sequelize.sync({ force: false });
 
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
+
         if (process.env.NODE_ENV === 'test') {
             console.log('Running in test environment');
         }

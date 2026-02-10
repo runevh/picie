@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Badge,
+  ActionIcon,
   Button,
   Group,
   LoadingOverlay,
@@ -13,6 +14,7 @@ import {
   Textarea,
   Title,
   Tooltip,
+  CopyButton,
 } from "@mantine/core";
 import {
   IconDeviceFloppy,
@@ -22,6 +24,7 @@ import {
   IconRefresh,
   IconTrash,
   IconPlus,
+  IconCopy,
 } from "@tabler/icons-react";
 import { useDeviceContext } from "../../contexts/DeviceContext";
 import { notifications } from "@mantine/notifications";
@@ -69,6 +72,8 @@ export function AdminPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsContent, setLogsContent] = useState("");
   const [logsFrame, setLogsFrame] = useState<FrameRecord | null>(null);
+  const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
+  const [credentialsContent, setCredentialsContent] = useState<{ uuid?: string; secret?: string; publicId?: string } | null>(null);
 
   const notifyFailure = (title: string, message?: string) => {
     notifications.show({
@@ -124,6 +129,13 @@ export function AdminPage() {
     try {
       const response = await createDevice();
       if (isSuccess(response)) {
+        const payload = (response.data as { data?: any })?.data ?? response.data;
+        setCredentialsContent({
+          uuid: payload?.uuid,
+          secret: payload?.secret,
+          publicId: payload?.publicId,
+        });
+        setCredentialsModalOpen(true);
         await loadFrames();
       } else {
         notifyFailure("Failed to create frame", String(response?.data ?? ""));
@@ -378,6 +390,49 @@ export function AdminPage() {
             styles={{ input: { fontFamily: "monospace" } }}
           />
           {logsLoading && <Text size="sm">Loading logs…</Text>}
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={credentialsModalOpen}
+        onClose={() => setCredentialsModalOpen(false)}
+        title="Frame credentials"
+        centered
+        size="md"
+      >
+        <Stack gap="sm">
+          {credentialsContent ? (
+            <Stack gap={8} styles={{ root: { fontFamily: "monospace" } }}>
+              {[
+                { label: "Public ID", value: credentialsContent.publicId },
+                { label: "UUID", value: credentialsContent.uuid },
+                { label: "Secret", value: credentialsContent.secret },
+              ].map((item) => (
+                <Group key={item.label} justify="space-between" gap="xs" wrap="nowrap">
+                  <Text
+                    size="sm"
+                    style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {item.label}: {item.value}
+                  </Text>
+                  <CopyButton value={item.value || ""} timeout={1500}>
+                    {({ copied, copy }) => (
+                      <Tooltip label={copied ? "Copied" : `Copy ${item.label.toLowerCase()}`}>
+                        <ActionIcon variant={copied ? "filled" : "light"} color={copied ? "teal" : "gray"} onClick={copy} aria-label={`Copy ${item.label}`}>
+                          <IconCopy size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </CopyButton>
+                </Group>
+              ))}
+              <Text size="xs" c="dimmed">
+                Shown only once after creation. Copy now and share only with authorized technicians.
+              </Text>
+            </Stack>
+          ) : (
+            <Text size="sm">No credentials available for this frame.</Text>
+          )}
         </Stack>
       </Modal>
 

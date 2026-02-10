@@ -555,6 +555,7 @@ const getDeviceStatus = async (req, res) => {
     }
 };
 
+
 module.exports = {
     createDevice,
     getUserDevices,
@@ -567,5 +568,5 @@ module.exports = {
     rebootDevice,
     getDeviceLogs,
     getDeviceStatus,
-    updateDeviceSettings
+    updateDeviceSettings,
 }
