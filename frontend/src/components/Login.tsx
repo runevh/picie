@@ -132,9 +132,23 @@ export function Login() {
       fullHeight
       px="md"
       py={{ base: 'md', md: 64 }}
-      style={{ display: 'flex', alignItems: 'center' }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 'md',
+      }}
     >
-      <Container size="sm" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'md' }}>
+      <Container
+        size="sm"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 'md',
+        }}
+      >
         <AddToHomeBanner />
         <GlassCard
           p={{ base: 'md', md: 'xl' }}

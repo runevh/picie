@@ -262,8 +262,13 @@ export function FramesPage() {
 
   return (
     <Background
-      p={{ base: "md", md: "xl" }}
-      style={{ minHeight: "100%" }}
+      px={{ base: "md", md: "xl" }}
+      pb={{ base: "md", md: "xl" }}
+      style={{
+        minHeight: "100%",
+        // keep content clear of the notch/status bar while matching page padding
+        paddingTop: "calc(var(--safe-area-top) + var(--mantine-spacing-md))",
+      }}
     >
       <Stack gap="xl">
         <PageHero
