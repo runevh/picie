@@ -40,6 +40,7 @@ export const Background = forwardRef<HTMLDivElement, BackgroundProps>(
           backgroundAttachment: "fixed",
           animation: "bgShift 70s ease-in-out infinite",
           minHeight: fullHeight ? "100vh" : undefined,
+          paddingTop: fullHeight ? "env(safe-area-inset-top, 0px)" : undefined,
           width: "100%",
           ...style,
         }}
