@@ -1,7 +1,15 @@
+#if __has_include("generated_root_ca.h")
+#include "generated_root_ca.h"
+#else
+static const char *const ROOT_CA_CERT_PEM = "";
+#endif
+
 #include "app_config.h"
 
 const AppConfig kDefaultAppConfig = {
-    {"192.168.1.79", 7735},
-    {1000UL, 60000UL, 2.0f},
-    10UL
+    {"picie.runevh.net", 7736},
+    {1000UL, 120000UL, 2.0f}, // exponential backoff capped at 2 minutes
+    10UL,
+    true,
+    ROOT_CA_CERT_PEM
 };

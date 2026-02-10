@@ -18,6 +18,8 @@ void DeviceApp::setup() {
     Serial.begin(115200);
     init_storage();
 
+    configure_client(config_.useSecureClient, config_.rootCaCert);
+
     loadCredentials();
     registerMessageHandlers();
 
@@ -28,6 +30,9 @@ void DeviceApp::setup() {
         enterProvisioningMode();
         return;
     }
+
+    // Ensure system time is set before TLS connections.
+    sync_time();
 
     if (ensureTcpConnection(true)) {
         resetReconnectBackoff();

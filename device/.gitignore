@@ -1,2 +1,5 @@
 .pio
 .vscode
+.env
+src/app/generated_root_ca.h
+rootCA.pem

@@ -17,6 +17,8 @@ struct AppConfig {
     ServerEndpoint server;
     ReconnectPolicy reconnect;
     unsigned long messagePollingDelayMs;
+    bool useSecureClient;
+    const char *rootCaCert; // PEM-encoded root certificate used in secure mode
 };
 
 extern const AppConfig kDefaultAppConfig;

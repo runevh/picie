@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
+#include <WiFiClientSecure.h>
 
 typedef void (*MessageHandler)(const uint8_t *data, size_t len);
 
@@ -16,6 +17,8 @@ enum DeviceStatus : uint8_t {
 bool connect_to_wifi(String ssid, String password);
 bool connect_to_tcp_server(String host, int16_t port);
 bool is_connected_to_tcp_server();
+void configure_client(bool useSecureClient, const char *rootCaCert);
+bool sync_time();
 bool send_message(const uint8_t code, const uint8_t *data, size_t len);
 bool send_message(String string);
 bool send_status(DeviceStatus status);
