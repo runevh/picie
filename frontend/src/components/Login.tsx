@@ -20,11 +20,13 @@ import { useState } from 'react';
 import { IconX } from '@tabler/icons-react';
 import { Background } from './layout/Background';
 import { GlassCard } from './layout/GlassCard';
+import { AddToHomeBanner } from './AddToHomeBanner';
 
 export function Login() {
   const { register, login } = useAuth();
   const [type, toggle] = useToggle(['login', 'register']);
   const [submitting, setSubmitting] = useState(false);
+  const inputSizes = { size: 'md', styles: { input: { fontSize: 16 }, label: { fontSize: 14 } } };
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const isDark = computedColorScheme === 'dark';
   const surface = isDark ? 'rgba(20, 24, 35, 0.9)' : 'rgba(255,255,255,0.92)';
@@ -129,12 +131,13 @@ export function Login() {
     <Background
       fullHeight
       px="md"
-      py={{ base: 'xl', md: 64 }}
+      py={{ base: 'md', md: 64 }}
       style={{ display: 'flex', alignItems: 'center' }}
     >
-      <Container size="sm" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+      <Container size="sm" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'md' }}>
+        <AddToHomeBanner />
         <GlassCard
-          p={{ base: 'lg', md: 'xl' }}
+          p={{ base: 'md', md: 'xl' }}
           overlay={heroOverlay}
           style={{
             width: '100%',
@@ -142,8 +145,8 @@ export function Login() {
           }}
         >
           <LoadingOverlay visible={submitting} zIndex={1000} overlayProps={{ radius: 'sm', blur: 1 }} />
-            <Stack gap="lg" style={{ position: 'relative', zIndex: 1 }}>
-              <Stack gap="sm">
+            <Stack gap={{ base: 'md', md: 'lg' }} style={{ position: 'relative', zIndex: 1 }}>
+              <Stack gap={{ base: 'xs', md: 'sm' }}>
                 <Title order={2}>Sign in to continue</Title>
                 <Text c="dimmed" size="sm" maw={520}>
                   Manage frames, curate albums, and keep collaborators in sync—all from the same glassy surface you see across the app.
@@ -153,10 +156,11 @@ export function Login() {
             <Divider label={type === 'register' ? 'Create a new account' : 'Welcome back'} labelPosition="center" />
 
             <form onSubmit={form.onSubmit(() => onSubmit())}>
-              <Stack gap="md">
+              <Stack gap={{ base: 'sm', md: 'md' }}>
                 {type === 'register' && (
                   <>
                     <TextInput
+                      {...inputSizes}
                       label="Full name"
                       placeholder="Your name"
                       value={form.values.name}
@@ -165,6 +169,7 @@ export function Login() {
                       required
                     />
                     <TextInput
+                      {...inputSizes}
                       label="Username"
                       placeholder="Choose a username"
                       value={form.values.username}
@@ -174,6 +179,7 @@ export function Login() {
                     />
 
                     <TextInput
+                      {...inputSizes}
                       required
                       label="Email"
                       placeholder="you@example.com"
@@ -187,6 +193,7 @@ export function Login() {
 
                 {type === 'login' && (
                   <TextInput
+                    {...inputSizes}
                     required
                     label="Email or username"
                     placeholder="you@example.com"
@@ -198,6 +205,7 @@ export function Login() {
                 )}
 
                 <PasswordInput
+                  {...inputSizes}
                   required
                   label="Password"
                   placeholder="Your password"

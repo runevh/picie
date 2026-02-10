@@ -1,0 +1,8 @@
+html, body, #root {
+  min-height: 100%;
+  background: #0a1325; /* match app shell base to avoid gray bands in PWA */
+}
+
+body {
+  overscroll-behavior-y: none;
+}

@@ -13,3 +13,8 @@
     background-position: 18% 38%;
   }
 }
+
+/* Respect iOS safe area so notifications don't sit under the status bar in PWA */
+.mantine-Notifications-root[data-position^="top"] {
+  padding-top: calc(env(safe-area-inset-top, 0px));
+}
