@@ -24,6 +24,7 @@ interface DeviceContextType {
     unlinkDevice: (id: string) => Promise<ResponseBody>;
     rebootDevice: (id: string) => Promise<ResponseBody>;
     fetchDeviceLogs: (id: string) => Promise<ResponseBody>;
+    uploadFirmware: (data: { id: string; filename?: string; data: string }) => Promise<ResponseBody>;
     updateDevice: (data: {
       id: string;
       name?: string;
@@ -81,6 +82,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         return await deviceService.getDeviceLogs(id);
     }
 
+    const uploadFirmware = async (data: { id: string; filename?: string; data: string }): Promise<ResponseBody> => {
+        return await deviceService.uploadFirmware(data);
+    }
+
     const updateDevice = async (data: {
       id: string;
       name?: string;
@@ -91,7 +96,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <DeviceContext.Provider value={{ devices, createDevice, getAllDevices, getAllUserDevices, startPairing, endClaimDevice, cancelPairing, getDeviceStatus, deleteDevice, unlinkDevice, rebootDevice, fetchDeviceLogs, updateDevice }}>
+        <DeviceContext.Provider value={{ devices, createDevice, getAllDevices, getAllUserDevices, startPairing, endClaimDevice, cancelPairing, getDeviceStatus, deleteDevice, unlinkDevice, rebootDevice, fetchDeviceLogs, uploadFirmware, updateDevice }}>
             {children}
         </DeviceContext.Provider>
     );

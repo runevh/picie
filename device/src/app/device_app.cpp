@@ -9,6 +9,7 @@
 #include <display/display_updater.h>
 #include <network/ap.h>
 #include <network/network.h>
+#include <network/firmware_update.h>
 #include <storage/storage.h>
 
 DeviceApp::DeviceApp(const AppConfig &config)
@@ -27,7 +28,9 @@ void DeviceApp::setup() {
     registerMessageHandlers();
 
     Serial.println("Initializing display...");
-    display.init();
+    //display.init();
+
+    Serial.println("Done initializing");
 
     if (!ensureWifiConnection()) {
         enterProvisioningMode();
@@ -216,6 +219,7 @@ void DeviceApp::enterProvisioningMode() {
 
 void DeviceApp::registerMessageHandlers() {
     register_handler(0x20, &handle_incoming_image);
+    register_handler(0x30, &handle_incoming_firmware);
     // Respond to server heartbeat ping (0x01) with pong (0x02).
     register_handler(0x01, [](const uint8_t*, size_t) {
         send_message(static_cast<uint8_t>(0x02), nullptr, 0);

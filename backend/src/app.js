@@ -18,7 +18,7 @@ const createApp = () => {
 
     app.use('/api/photo/upload', express.json({ limit: '10mb' }));
     app.use(cookieParser());
-    app.use(bodyParser.json());
+    app.use(bodyParser.json({ limit: '20mb' }));
 
     app.use('/api', apiRouter);
 

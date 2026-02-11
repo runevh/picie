@@ -45,13 +45,30 @@ async function getRawData(photoId) {
 }
 
 const sendImage = async (client, photoId, options = {}) => {
-    // Request size that we should send over
-    //TODO: Check that device is in idle
     const { chunkTimeoutMs = 20000 } = options;
-    try {
-        if (typeof client.waitUntilIdle === 'function') {
-            await client.waitUntilIdle();
+
+    const ensureIdle = async () => {
+        const start = Date.now();
+        const MAX_WAIT = 60_000;
+        while (true) {
+            const busy = (typeof client.hasPendingWork === 'function' && client.hasPendingWork()) ||
+                         (client.status && client.status !== 'idle');
+            if (!busy) return;
+
+            if (typeof client.waitUntilIdle === 'function') {
+                await client.waitUntilIdle();
+            } else {
+                await new Promise(res => setTimeout(res, 200));
+            }
+
+            if (Date.now() - start > MAX_WAIT) {
+                throw new Error('Timed out waiting for device to become idle');
+            }
         }
+    };
+
+    const doSend = async () => {
+        await ensureIdle();
 
         const rawBytes = await getRawData(photoId);
 
@@ -81,10 +98,13 @@ const sendImage = async (client, photoId, options = {}) => {
         }
 
         console.log("Done sending");
-    } catch (e) {
-        console.error('Failed send data:', e);
-        throw e;
+    };
+
+    if (typeof client.enqueueTask === 'function') {
+        return client.enqueueTask(doSend, `send-image-${photoId}`);
     }
+
+    return doSend();
 }
 
 const sendBuffer = async (client, buffer) => {

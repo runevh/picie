@@ -131,7 +131,7 @@ bool sync_time()
         Serial.println("Time sync failed");
         return false;
     }
-    Serial.printf("Time synced: %ld\n", now);
+    Serial.printf("Time synced: %lld\n", static_cast<long long>(now));
     return true;
 }
 

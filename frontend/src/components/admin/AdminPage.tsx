@@ -15,6 +15,9 @@ import {
   Title,
   Tooltip,
   CopyButton,
+  Select,
+  FileButton,
+  Alert,
 } from "@mantine/core";
 import {
   IconDeviceFloppy,
@@ -25,6 +28,8 @@ import {
   IconTrash,
   IconPlus,
   IconCopy,
+  IconUpload,
+  IconCloudUpload,
 } from "@tabler/icons-react";
 import { useDeviceContext } from "../../contexts/DeviceContext";
 import { notifications } from "@mantine/notifications";
@@ -59,6 +64,7 @@ export function AdminPage() {
     deleteDevice,
     rebootDevice,
     fetchDeviceLogs,
+    uploadFirmware,
   } = useDeviceContext();
 
   const [frames, setFrames] = useState<FrameRecord[]>([]);
@@ -74,6 +80,10 @@ export function AdminPage() {
   const [logsFrame, setLogsFrame] = useState<FrameRecord | null>(null);
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
   const [credentialsContent, setCredentialsContent] = useState<{ uuid?: string; secret?: string; publicId?: string } | null>(null);
+  const [otaModalOpen, setOtaModalOpen] = useState(false);
+  const [otaTargetId, setOtaTargetId] = useState<string | null>(null);
+  const [otaFile, setOtaFile] = useState<File | null>(null);
+  const [otaLoading, setOtaLoading] = useState(false);
 
   const notifyFailure = (title: string, message?: string) => {
     notifications.show({
@@ -195,6 +205,59 @@ export function AdminPage() {
     }
   };
 
+  const fileToBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1] || "";
+        resolve(base64);
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+
+  const handleOpenOta = (frameId?: string) => {
+    const targetId = frameId ?? frames[0]?.id ?? null;
+    setOtaTargetId(targetId || null);
+    setOtaFile(null);
+    setOtaModalOpen(true);
+  };
+
+  const handleSubmitOta = async () => {
+    if (!otaTargetId || !otaFile) {
+      notifyFailure("Missing info", "Select a frame and a firmware file first.");
+      return;
+    }
+
+    if (otaFile.size > 2_000_000) {
+      notifyFailure("File too large", "Firmware must be smaller than ~2MB for the ESP8266 flash size.");
+      return;
+    }
+
+    setOtaLoading(true);
+    try {
+      const data = await fileToBase64(otaFile);
+      const response = await uploadFirmware({ id: otaTargetId, filename: otaFile.name, data });
+      if (isSuccess(response)) {
+        notifications.show({
+          title: "OTA started",
+          message: `Pushing ${otaFile.name} (${Math.round(otaFile.size / 1024)} KB)`,
+          color: "teal",
+        });
+        setOtaModalOpen(false);
+      } else {
+        notifyFailure("OTA failed", String(response?.data ?? ""));
+      }
+    } catch (err: any) {
+      notifyFailure("OTA failed", err?.message);
+    } finally {
+      setOtaLoading(false);
+    }
+  };
+
+  const formatId = (id: string) => id?.toString().padStart(6, "0").slice(-6);
+
   const derivedFrames = useMemo(() => {
     return frames.map((frame) => {
       const lastSeenDate =
@@ -218,7 +281,14 @@ export function AdminPage() {
     });
   }, [frames]);
 
-  const formatId = (id: string) => id?.toString().padStart(6, "0").slice(-6);
+  const frameOptions = useMemo(
+    () =>
+      derivedFrames.map((frame) => ({
+        value: frame.id,
+        label: `${formatId(frame.id)}${frame.name ? ` — ${frame.name}` : ""}`,
+      })),
+    [derivedFrames]
+  );
 
   const renderStatusBadge = (frame: typeof derivedFrames[number]) => {
     const color = frame.isOnline ? "green" : "gray";
@@ -269,6 +339,14 @@ export function AdminPage() {
             disabled={loading || refreshing}
           >
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            leftSection={<IconCloudUpload size={16} />}
+            onClick={() => handleOpenOta()}
+            disabled={frames.length === 0}
+          >
+            OTA update
           </Button>
           <Button
             leftSection={<IconPlus size={16} />}
@@ -328,6 +406,16 @@ export function AdminPage() {
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs">
+                        <Tooltip label="Send firmware OTA">
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            leftSection={<IconUpload size={14} />}
+                            onClick={() => handleOpenOta(frame.id)}
+                          >
+                            OTA
+                          </Button>
+                        </Tooltip>
                         <Tooltip label="Reboot frame">
                           <Button
                             variant="light"
@@ -370,6 +458,56 @@ export function AdminPage() {
           </Table>
         </ScrollArea>
       </Paper>
+
+      <Modal
+        opened={otaModalOpen}
+        onClose={() => setOtaModalOpen(false)}
+        title="Firmware over-the-air"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <Alert color="blue" title="Heads up">
+            Device must be online and firmware should be under ~2 MB (ESP8266 flash limit). The frame will reboot after the update.
+          </Alert>
+          <Select
+            label="Target frame"
+            placeholder="Select frame"
+            data={frameOptions}
+            value={otaTargetId}
+            onChange={(value) => setOtaTargetId(value)}
+            searchable
+          />
+          <Group>
+            <FileButton onChange={setOtaFile} accept=".bin" disabled={!otaTargetId}>
+              {(props) => (
+                <Button {...props} variant="light" leftSection={<IconUpload size={16} />}>
+                  Choose .bin file
+                </Button>
+              )}
+            </FileButton>
+            {otaFile && (
+              <Text size="sm" c="dimmed">
+                {otaFile.name} • {Math.round(otaFile.size / 1024)} KB
+              </Text>
+            )}
+          </Group>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setOtaModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              color="teal"
+              leftSection={<IconCloudUpload size={16} />}
+              loading={otaLoading}
+              onClick={handleSubmitOta}
+              disabled={!otaTargetId || !otaFile}
+            >
+              Upload firmware
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal
         opened={logsModalOpen}

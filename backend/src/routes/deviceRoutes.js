@@ -1,6 +1,6 @@
 const { Router } = require('express');
 
-const { createDevice, getAllDevices, getUserDevices, startPairing, completePairing, cancelPairing, triggerFramePreview, deleteDevice, unlinkDevice, rebootDevice, getDeviceLogs, getDeviceStatus, updateDeviceSettings } = require('../controller/deviceController');
+const { createDevice, getAllDevices, getUserDevices, startPairing, completePairing, cancelPairing, triggerFramePreview, deleteDevice, unlinkDevice, rebootDevice, getDeviceLogs, getDeviceStatus, updateDeviceSettings, uploadFirmware } = require('../controller/deviceController');
 const { auth, admin } = require('../middleware/auth');
 
 const router = Router();
@@ -18,5 +18,6 @@ router.post('/delete', auth, admin, deleteDevice);
 router.post('/reboot', auth, admin, rebootDevice);
 router.post('/logs', auth, admin, getDeviceLogs);
 router.post('/update', auth, updateDeviceSettings);
+router.post('/firmware', auth, admin, uploadFirmware);
 
 module.exports = router;

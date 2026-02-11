@@ -53,4 +53,8 @@ export const deviceService = {
   }) => {
     return await postRequest("device/update", payload);
   },
+
+  uploadFirmware: async (payload: { id: string; filename?: string; data: string }) => {
+    return await postRequest("device/firmware", payload);
+  },
 };

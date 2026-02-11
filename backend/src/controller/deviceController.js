@@ -6,10 +6,14 @@ const crypto = require('crypto');
 const tcpServer = require('../services/tcpServer');
 const { getNextUpdateLabel, setDeviceSchedule, getOrCreateDeviceState, ensureNextPlannedPhoto } = require('../schedules/updateScheduler');
 const { pushNextPhotoToDevice } = require('../services/device/imageUpdateManager');
+const { sendFirmware } = require('../services/device/firmwareSender');
 const { dither } = require('../services/photo/dithering');
 const generateNumberImage = require('../services/photo/pinImageGenerator');
 const { sendBuffer } = require('../services/photo/imageSender');
 const { Op } = require('sequelize');
+const fs = require('fs/promises');
+const os = require('os');
+const path = require('path');
 
 // Create a new device with a random secret and return its identifiers.
 const createDevice = async (req, res) => {
@@ -555,6 +559,51 @@ const getDeviceStatus = async (req, res) => {
     }
 };
 
+// Receive a firmware binary (base64) and push it to the device over TCP.
+const uploadFirmware = async (req, res) => {
+    try {
+        const { id, filename, data } = req.body;
+
+        if (!id || !data) {
+            return res.status(400).json({ success: false, message: 'Device id and firmware data are required' });
+        }
+
+        const buffer = Buffer.from(data, 'base64');
+        const MAX_BYTES = 2_000_000; // ~2MB safeguard for ESP8266 sketch space
+        if (buffer.length === 0 || buffer.length > MAX_BYTES) {
+            return res.status(400).json({ success: false, message: `Firmware size must be between 1 byte and ${MAX_BYTES} bytes` });
+        }
+
+        const device = await findDeviceById(id);
+        if (!device) {
+            return res.status(404).json({ success: false, message: 'Device not found' });
+        }
+
+        const client = tcpServer.getConnectedDevices().get(device.uuid);
+        if (!client) {
+            return res.status(400).json({ success: false, message: 'Device is offline' });
+        }
+        if (client.status && client.status !== 'idle') {
+            return res.status(409).json({ success: false, message: `Device is busy (${client.status}). Try again when idle.` });
+        }
+
+        const safeName = filename ? filename.replace(/[^a-zA-Z0-9_.-]/g, '_') : 'firmware.bin';
+        const tempPath = path.join(os.tmpdir(), `${device.uuid}-${Date.now()}-${safeName}`);
+
+        await fs.writeFile(tempPath, buffer);
+
+        try {
+            const result = await sendFirmware(client, tempPath);
+            return res.json({ success: true, data: { bytesSent: result?.bytesSent ?? buffer.length } });
+        } finally {
+            fs.unlink(tempPath).catch(() => {});
+        }
+    } catch (error) {
+        console.error('Error uploading firmware:', error);
+        return res.status(500).json({ success: false, message: 'Failed to push firmware to device' });
+    }
+};
+
 
 module.exports = {
     createDevice,
@@ -569,4 +618,5 @@ module.exports = {
     getDeviceLogs,
     getDeviceStatus,
     updateDeviceSettings,
+    uploadFirmware,
 }
