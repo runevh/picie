@@ -216,6 +216,10 @@ void DeviceApp::enterProvisioningMode() {
 
 void DeviceApp::registerMessageHandlers() {
     register_handler(0x20, &handle_incoming_image);
+    // Respond to server heartbeat ping (0x01) with pong (0x02).
+    register_handler(0x01, [](const uint8_t*, size_t) {
+        send_message(static_cast<uint8_t>(0x02), nullptr, 0);
+    });
 }
 
 void DeviceApp::setupOta() {

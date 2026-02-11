@@ -11,6 +11,12 @@ WiFiClientSecure secureClient;
 Client *client = &plainClient;
 BearSSL::X509List *rootTrustAnchor = nullptr;
 
+// Built-in handlers: keep the device responsive to server health checks.
+static void handle_ping(const uint8_t *, size_t) {
+    // 0x01 = ping, reply with pong (0x02)
+    send_message(static_cast<uint8_t>(0x02), nullptr, 0);
+}
+
 bool connect_to_wifi(String ssid, String password)
 {
     Serial.print("Connecting to wifi...");
@@ -154,7 +160,16 @@ bool send_message(String string)
 
 MessageHandler handlers[256] = { nullptr };
 
+// Ensure builtin handlers are registered once.
+static void ensure_default_handlers() {
+    static bool initialized = false;
+    if (initialized) return;
+    handlers[0x01] = handle_ping;
+    initialized = true;
+}
+
 void register_handler(uint8_t messageCode, MessageHandler handler) {
+    ensure_default_handlers();
     handlers[messageCode] = handler;
 }
 
@@ -164,6 +179,7 @@ bool send_status(DeviceStatus status) {
 }
 
 void processIncomingMessages() {
+    ensure_default_handlers();
     while (client->available() > 0) {
         uint8_t messageCode = client->read();
 

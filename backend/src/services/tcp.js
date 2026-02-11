@@ -6,6 +6,9 @@ const { sendImage } = require("./photo/imageSender")
 const { getOrCreateDeviceState, markDeviceUpdateSent } = require('../schedules/updateScheduler');
 
 const AUTH_MSG_LENGTH = 98 // UUID(36)+ key(62)
+const HEARTBEAT_BASE_MS = 300_000;      // 5 minutes between healthy pings
+const HEARTBEAT_RETRY_MS = 5_000;       // retry interval after a miss
+const HEARTBEAT_MAX_RETRIES = 3;        // destroy after this many consecutive misses
 
 class TcpServer extends EventEmitter {
     constructor(port) {
@@ -39,6 +42,8 @@ class TcpClient {
     this.statusWaiters = [];
     this.pendingTask = null;
     this.processingTask = false;
+    this.heartbeatTimer = null;
+    this.missedHeartbeats = 0;
 
     // Enable TCP-level keepalive so we notice abrupt device power-offs
     // instead of holding a half-open connection indefinitely.
@@ -60,6 +65,7 @@ class TcpClient {
     });
     this.socket.on('close', () => {
       clearTimeout(this.authTimeout);
+      this.stopHeartbeat();
       if (this.uuid) {
         devices.delete(this.uuid);
         console.log(`Device ${this.uuid} disconnected; cleaned up state`);
@@ -95,7 +101,7 @@ class TcpClient {
         }
     }
 
-    async handleAuth(authString) {
+  async handleAuth(authString) {
         if (authString.length != AUTH_MSG_LENGTH) { //Account for the \r at the end
             console.log('Message not right length');
             this.socket.destroy();
@@ -124,14 +130,15 @@ class TcpClient {
             return;
         }
 
-        console.log(`Device ${recvUuid} authenticated`);
-        this.authenticated = true;
-        clearTimeout(this.authTimeout);
-        this.uuid = recvUuid;
-        this.devices.set(this.uuid, this);
-        this.socket.write(Buffer.from([0x10])); // Send AUTH_OK
-        this.updateLastSeen();
-    }
+    console.log(`Device ${recvUuid} authenticated`);
+    this.authenticated = true;
+    clearTimeout(this.authTimeout);
+    this.uuid = recvUuid;
+    this.devices.set(this.uuid, this);
+    this.socket.write(Buffer.from([0x10])); // Send AUTH_OK
+    this.updateLastSeen();
+    this.startHeartbeat();
+  }
 
     handleData(data) {
         console.log("Received new data");
@@ -170,6 +177,57 @@ class TcpClient {
     const waiters = [...this.statusWaiters];
     this.statusWaiters = [];
     waiters.forEach((resolve) => resolve());
+  }
+
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.missedHeartbeats = 0;
+    this.heartbeatTimer = setTimeout(() => this.sendHeartbeat(), HEARTBEAT_BASE_MS);
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  waitForResponse(code, timeoutMs = 10_000) {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingResponses.delete(code);
+        reject(new Error('response_timeout'));
+      }, timeoutMs);
+
+      this.pendingResponses.set(code, () => {
+        clearTimeout(timeout);
+        this.pendingResponses.delete(code);
+        resolve();
+      });
+    });
+  }
+
+  async sendHeartbeat() {
+    if (!this.authenticated) return;
+    try {
+      // 0x01 = ping, expect 0x02 = pong
+      this.socket.write(Buffer.from([0x01]));
+      await this.waitForResponse(0x02, 10_000);
+      this.missedHeartbeats = 0;
+      // Schedule the next regular heartbeat after a healthy pong.
+      this.stopHeartbeat();
+      this.heartbeatTimer = setTimeout(() => this.sendHeartbeat(), HEARTBEAT_BASE_MS);
+    } catch (err) {
+      this.missedHeartbeats += 1;
+      if (this.missedHeartbeats >= HEARTBEAT_MAX_RETRIES) {
+        console.warn(`Heartbeat missed ${this.missedHeartbeats} times for device ${this.uuid}; destroying socket`);
+        this.socket.destroy();
+        return;
+      }
+      // Retry sooner after a miss.
+      this.stopHeartbeat();
+      this.heartbeatTimer = setTimeout(() => this.sendHeartbeat(), HEARTBEAT_RETRY_MS);
+    }
   }
 
   enqueueTask(taskFn, label = 'task') {
