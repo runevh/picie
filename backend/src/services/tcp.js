@@ -20,10 +20,10 @@ class TcpServer extends EventEmitter {
         });
     }
 
-    handleConnection(socket) {
-        console.log('New client connected:', socket.remoteAddress);
-        new TcpClient(socket, this.devices);
-    }
+  handleConnection(socket) {
+    console.log('New client connected:', socket.remoteAddress);
+    new TcpClient(socket, this.devices);
+  }
 
     getConnectedDevices() {
         return this.devices;
@@ -130,11 +130,22 @@ class TcpClient {
             return;
         }
 
-    console.log(`Device ${recvUuid} authenticated`);
-    this.authenticated = true;
-    clearTimeout(this.authTimeout);
-    this.uuid = recvUuid;
-    this.devices.set(this.uuid, this);
+        // If this device already has a connected client, drop it in favor of the newly authenticated one.
+        const existing = this.devices.get(recvUuid);
+        if (existing && existing !== this) {
+            console.log(`Device ${recvUuid} re-authenticated; closing previous socket`);
+            try {
+                existing.socket?.destroy();
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        console.log(`Device ${recvUuid} authenticated`);
+        this.authenticated = true;
+        clearTimeout(this.authTimeout);
+        this.uuid = recvUuid;
+        this.devices.set(this.uuid, this);
     this.socket.write(Buffer.from([0x10])); // Send AUTH_OK
     this.updateLastSeen();
     this.startHeartbeat();
@@ -153,6 +164,10 @@ class TcpClient {
       if (this.status === 'idle') {
         this.flushStatusWaiters();
         this.processTaskQueue();
+      } else if (this.status === 'rebooting') {
+        console.log(`Device ${this.uuid || 'unknown'} reported rebooting; destroying socket to allow reconnect`);
+        // Give a tiny grace period to flush logs then close.
+        setTimeout(() => this.socket.destroy(), 50);
       }
       return;
     }
@@ -331,6 +346,7 @@ class TcpClient {
             case 0x41: return 'updating_image';
             case 0x42: return 'pairing';
             case 0x43: return 'updating_frame';
+            case 0x44: return 'rebooting';
             case 0x4F: return 'error';
             default: return this.status || 'idle';
         }
