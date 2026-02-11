@@ -67,8 +67,13 @@ class TcpClient {
       clearTimeout(this.authTimeout);
       this.stopHeartbeat();
       if (this.uuid) {
-        devices.delete(this.uuid);
-        console.log(`Device ${this.uuid} disconnected; cleaned up state`);
+        const current = devices.get(this.uuid);
+        if (current === this) {
+          devices.delete(this.uuid);
+          console.log(`Device ${this.uuid} disconnected; cleaned up state`);
+        } else {
+          console.log(`Device ${this.uuid} stale socket closed; current connection retained`);
+        }
       }
     });
     this.devices = devices
