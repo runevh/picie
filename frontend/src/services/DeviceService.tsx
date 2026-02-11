@@ -1,4 +1,4 @@
-import { getRequest, postRequest } from "./api"; // Adjust path as needed
+import { getRequest, postRequest, postBinary } from "./api"; // Adjust path as needed
 
 export const deviceService = {
   createDevice: async () => {
@@ -54,7 +54,11 @@ export const deviceService = {
     return await postRequest("device/update", payload);
   },
 
-  uploadFirmware: async (payload: { id: string; filename?: string; data: string }) => {
-    return await postRequest("device/firmware", payload);
+  uploadFirmware: async (payload: { id: string; file: File }) => {
+    const buffer = await payload.file.arrayBuffer();
+    return await postBinary("device/firmware", buffer, {
+      params: { id: payload.id, filename: payload.file.name },
+      contentType: "application/octet-stream",
+    });
   },
 };

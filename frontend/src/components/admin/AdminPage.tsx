@@ -205,18 +205,6 @@ export function AdminPage() {
     }
   };
 
-  const fileToBase64 = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64 = result.split(",")[1] || "";
-        resolve(base64);
-      };
-      reader.onerror = (err) => reject(err);
-      reader.readAsDataURL(file);
-    });
-
   const handleOpenOta = (frameId?: string) => {
     const targetId = frameId ?? frames[0]?.id ?? null;
     setOtaTargetId(targetId || null);
@@ -237,8 +225,7 @@ export function AdminPage() {
 
     setOtaLoading(true);
     try {
-      const data = await fileToBase64(otaFile);
-      const response = await uploadFirmware({ id: otaTargetId, filename: otaFile.name, data });
+      const response = await uploadFirmware({ id: otaTargetId, file: otaFile });
       if (isSuccess(response)) {
         notifications.show({
           title: "OTA started",

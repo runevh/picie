@@ -559,16 +559,26 @@ const getDeviceStatus = async (req, res) => {
     }
 };
 
-// Receive a firmware binary (base64) and push it to the device over TCP.
+// Receive a firmware binary (raw octet-stream or base64 JSON) and push it to the device over TCP.
 const uploadFirmware = async (req, res) => {
     try {
-        const { id, filename, data } = req.body;
+        const { id: idQuery, filename: filenameQuery } = req.query || {};
+        const { id: idBody, filename: filenameBody, data } = req.body || {};
+        const id = idQuery || idBody;
+        const filename = filenameQuery || filenameBody;
 
-        if (!id || !data) {
-            return res.status(400).json({ success: false, message: 'Device id and firmware data are required' });
+        // Prefer raw binary when content-type is octet-stream; fallback to base64 JSON for backward compatibility.
+        let buffer;
+        if (req.is('application/octet-stream') && Buffer.isBuffer(req.body)) {
+            buffer = req.body;
+        } else if (data) {
+            buffer = Buffer.from(data, 'base64');
         }
 
-        const buffer = Buffer.from(data, 'base64');
+        if (!id || !buffer) {
+            return res.status(400).json({ success: false, message: 'Device id and firmware binary are required' });
+        }
+
         const MAX_BYTES = 2_000_000; // ~2MB safeguard for ESP8266 sketch space
         if (buffer.length === 0 || buffer.length > MAX_BYTES) {
             return res.status(400).json({ success: false, message: `Firmware size must be between 1 byte and ${MAX_BYTES} bytes` });

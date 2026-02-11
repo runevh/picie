@@ -28,14 +28,11 @@ app.use(cors({
   credentials: true,
 }));
 
-/*app.use('/api/photo/upload', express.raw({
-  type: 'image/*',
-  limit: '10mb',
-}));*/
 app.use('/api/photo/upload', express.json({ limit: '10mb' }));
 app.use(cookieParser());
-// Allow larger JSON payloads for firmware uploads (base64 bloats the size)
-// Default limit is 100kb which is too small for ~2MB binaries encoded as JSON.
+// Accept raw binary firmware uploads (preferred) before JSON parsing.
+app.use('/api/device/firmware', express.raw({ type: 'application/octet-stream', limit: '5mb' }));
+// Allow larger JSON payloads for legacy base64 uploads.
 app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/api', router);
 

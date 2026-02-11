@@ -36,6 +36,22 @@ export const postRequest = async (endpoint: string, data: any): Promise<Response
     }
 };
 
+export const postBinary = async (
+    endpoint: string,
+    data: ArrayBuffer | Blob,
+    options?: { params?: any, contentType?: string }
+): Promise<ResponseBody> => {
+    try {
+        const response = await api.post(endpoint, data, {
+            headers: { 'Content-Type': options?.contentType || 'application/octet-stream' },
+            params: options?.params,
+        });
+        return { success: true, data: response.data };
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
 const handleError = (error: any) => {
     if (error.response) {
         const { data } = error.response;
