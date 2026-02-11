@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { connectDB } = require('./config/db');
 const { register, login, fetchUser, logout } = require('../src/controller/userController');
-const { createDevice, getAllDevices, startPairing, completePairing, cancelPairing, getUserDevices, deleteDevice, unlinkDevice, rebootDevice, getDeviceLogs, getDeviceStatus, updateDeviceSettings } = require('../src/controller/deviceController')
+const { createDevice, getAllDevices, startPairing, completePairing, cancelPairing, getUserDevices, deleteDevice, unlinkDevice, rebootDevice, getDeviceLogs, getDeviceStatus, updateDeviceSettings, uploadFirmware } = require('../src/controller/deviceController')
 const { auth, admin } = require('../src/middleware/auth');
 const http = require('http');
 const { savePhoto, getPhoto, getAlbums, savePhotoCollage, createAlbum, deletePhotos, deleteAlbum } = require('./controller/photoController');
@@ -61,6 +61,7 @@ router.post('/device/delete', auth, admin, deleteDevice);
 router.post('/device/reboot', auth, admin, rebootDevice);
 router.post('/device/logs', auth, admin, getDeviceLogs);
 router.post('/device/update', auth, updateDeviceSettings);
+router.post('/device/firmware', auth, admin, uploadFirmware);
 router.post('/device/set', auth, admin, (req, res) => {
   const firstEntry = tcpServer.getConnectedDevices().entries().next().value;
   const [, client] = firstEntry; // destructure to get the client instance
