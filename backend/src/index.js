@@ -34,7 +34,9 @@ app.use(cors({
 }));*/
 app.use('/api/photo/upload', express.json({ limit: '10mb' }));
 app.use(cookieParser());
-app.use(bodyParser.json());
+// Allow larger JSON payloads for firmware uploads (base64 bloats the size)
+// Default limit is 100kb which is too small for ~2MB binaries encoded as JSON.
+app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/api', router);
 
 router.post('/register', register);
