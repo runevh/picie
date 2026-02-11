@@ -27,12 +27,28 @@ async function sendFirmware(client, firmwarePath, opts = {}) {
   const data = await fs.readFile(firmwarePath);
   const totalSize = data.length;
 
+  const describeStatus = () => ({
+    status: client.status || 'unknown',
+    processingTask: Boolean(client.processingTask),
+    pendingTask: client.pendingTask?.label || null,
+    hasPendingWork: typeof client.hasPendingWork === 'function' ? client.hasPendingWork() : undefined,
+  });
+
+  console.log(`[firmware] start send ${client.uuid || 'unknown-device'}`, {
+    totalSize,
+    ...describeStatus(),
+  });
+
   const ensureIdleOrThrow = async () => {
     const start = Date.now();
     while (true) {
-      if (typeof client.hasPendingWork === 'function' && client.hasPendingWork()) {
-        // fall through to wait
-      } else if (!client.status || client.status === 'idle') {
+      const busy =
+        client.pendingTask || // queued work
+        (client.status && client.status !== 'idle'); // device reports busy
+
+      // If we're in the middle of this very task (processingTask=true) but no pending work and status is idle,
+      // consider the device idle to avoid self-deadlocking.
+      if (!busy) {
         return;
       }
 
@@ -43,6 +59,8 @@ async function sendFirmware(client, firmwarePath, opts = {}) {
       }
 
       if (Date.now() - start > MAX_IDLE_WAIT_MS) {
+        const detail = describeStatus();
+        console.warn(`[firmware] idle wait timeout for ${client.uuid || 'unknown-device'}`, detail);
         throw new Error('Timed out waiting for device to become idle');
       }
     }
