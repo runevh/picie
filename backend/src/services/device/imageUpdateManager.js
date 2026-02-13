@@ -61,6 +61,7 @@ const pushNextPhotoToDevice = async (deviceId, client) => {
       await sendImage(client, photoId, {
         chunkTimeoutMs: 30000,
         deviceId,
+        enqueue: false, // already inside enqueueTask
         onStart: async () => {
           // Mark current when bytes begin flowing, then plan the next image.
           const freshState = await getOrCreateDeviceState(deviceId);

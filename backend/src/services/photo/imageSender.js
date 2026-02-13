@@ -48,6 +48,7 @@ const sendImage = async (client, photoId, options = {}) => {
     const {
         chunkTimeoutMs = 20000,
         deviceId = 'unknown',
+        enqueue = true,
     } = options;
 
     const ensureIdle = async () => {
@@ -107,7 +108,7 @@ const sendImage = async (client, photoId, options = {}) => {
         console.log(`[sendImage] Done sending to device=${deviceId}`);
     };
 
-    if (typeof client.enqueueTask === 'function') {
+    if (enqueue && typeof client.enqueueTask === 'function') {
         return client.enqueueTask(doSend, `send-image-${photoId}`);
     }
 
