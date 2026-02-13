@@ -183,10 +183,12 @@ const startUpdateScheduler = (tcpServer) => {
       const state = await ensureState(uuid);
       if (!state.nextUpdateAt || state.nextUpdateAt <= Date.now()) {
         const client = devices.get(uuid);
+
         if (client?.hasPendingWork && client.hasPendingWork()) {
           console.log(`[scheduler] skip device ${uuid}; work already pending (status ${client.status})`);
           continue;
         }
+        
         console.log(`[scheduler] update now for device ${uuid} (current ${state.currentPhotoId || 'none'}, next ${state.nextPhotoId || 'none'})`, {
           scheduleMode: state.scheduleMode,
           timesOfDay: state.timesOfDay,

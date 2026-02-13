@@ -9,6 +9,7 @@ const AUTH_MSG_LENGTH = 98 // UUID(36)+ key(62)
 const HEARTBEAT_BASE_MS = 300_000;      // 5 minutes between healthy pings
 const HEARTBEAT_RETRY_MS = 5_000;       // retry interval after a miss
 const HEARTBEAT_MAX_RETRIES = 3;        // destroy after this many consecutive misses
+const IDLE_WAIT_TIMEOUT_MS = 60_000;    // cap how long we wait for devices to report idle
 
 class TcpServer extends EventEmitter {
     constructor(port) {
@@ -166,7 +167,7 @@ class TcpClient {
       console.log(`Device ${this.uuid || 'unknown'} status code 0x${code.toString(16)}: ${previousStatus} -> ${nextStatus}`);
       this.status = nextStatus;
       this.updateLastSeen();
-      if (this.status === 'idle') {
+      if (this.status === 'idle' || this.status === 'error') {
         this.flushStatusWaiters();
         this.processTaskQueue();
       } else if (this.status === 'rebooting') {
@@ -186,10 +187,22 @@ class TcpClient {
     this.updateLastSeen();
   }
 
-  waitUntilIdle() {
-    if (this.status === 'idle') return Promise.resolve();
-    return new Promise((resolve) => {
-      this.statusWaiters.push(resolve);
+  waitUntilIdle(timeoutMs = IDLE_WAIT_TIMEOUT_MS) {
+    if (this.status === 'idle' || this.status === 'error') return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      const wrapped = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+
+      const timer = setTimeout(() => {
+        // Remove the waiter so later idle events don't resolve a timed out promise.
+        this.statusWaiters = this.statusWaiters.filter((fn) => fn !== wrapped);
+        reject(new Error(`Timed out waiting for device ${this.uuid || 'unknown'} to become idle`));
+      }, timeoutMs);
+
+      this.statusWaiters.push(wrapped);
     });
   }
 
@@ -264,7 +277,15 @@ class TcpClient {
     this.processingTask = true;
     while (this.pendingTask) {
       // Wait until the device reports idle before choosing which task to run.
-      await this.waitUntilIdle();
+      try {
+        await this.waitUntilIdle();
+      } catch (err) {
+        console.warn(`[tcp] waitUntilIdle timeout before ${this.pendingTask?.label || 'task'} for device ${this.uuid || 'unknown'}`, err?.message || err);
+        // Reject the pending task so callers get a timely error instead of hanging until proxy timeout.
+        this.pendingTask?.reject(err);
+        this.pendingTask = null;
+        continue;
+      }
 
       // If a newer task arrived while we were waiting, drop the older one so the queue size stays at 1.
       const current = this.pendingTask;
@@ -300,7 +321,10 @@ class TcpClient {
   }
 
   hasPendingWork() {
-    return this.processingTask || Boolean(this.pendingTask) || (this.status && this.status !== 'idle');
+    // Only treat queued/actively running tasks as "pending work".
+    // Do NOT block merely because the device reports a non-idle status; downstream
+    // sendImage/waitUntilIdle already wait for the device to become idle before pushing.
+    return this.processingTask || Boolean(this.pendingTask);
   }
 
   send(data) {

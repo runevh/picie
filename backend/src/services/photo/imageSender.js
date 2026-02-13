@@ -76,12 +76,9 @@ const sendImage = async (client, photoId, options = {}) => {
         let sentBytes = 0;
         let started = false;
 
-        console.log(rawBytes.length);
-
         while (sentBytes < rawBytes.length) {
             const sizeData = await client.waitForResponse(0x21, chunkTimeoutMs);
             const size = sizeData.readUInt32LE(0);
-            console.log(size);
             if (!started) {
                 started = true;
                 if (typeof options.onStart === 'function') {
