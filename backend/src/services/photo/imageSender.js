@@ -54,8 +54,9 @@ const sendImage = async (client, photoId, options = {}) => {
         const start = Date.now();
         const MAX_WAIT = 60_000;
         while (true) {
-            const busy = (typeof client.hasPendingWork === 'function' && client.hasPendingWork()) ||
-                         (client.status && client.status !== 'idle');
+            // When called from processTaskQueue we already hold the pendingTask;
+            // only gate on device status, not the task queue itself.
+            const busy = client.status && client.status !== 'idle';
             if (!busy) {
                 console.log(`[sendImage] device ${deviceId} idle, starting transfer`);
                 return;
