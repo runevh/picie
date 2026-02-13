@@ -181,6 +181,10 @@ const startUpdateScheduler = (tcpServer) => {
     const devices = tcpServer.getConnectedDevices();
     for (const [uuid] of devices.entries()) {
       const state = await ensureState(uuid);
+      if (!state.albumId) {
+        console.log(`[scheduler] skip device ${uuid}; no album configured`);
+        continue;
+      }
       const now = Date.now();
       if (state.nextUpdateAt && state.nextUpdateAt > now) {
         console.log(`[scheduler] device ${uuid} not due yet`, {

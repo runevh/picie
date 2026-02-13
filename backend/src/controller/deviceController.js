@@ -364,6 +364,18 @@ const unlinkDevice = async (req, res) => {
 
         await link.destroy();
 
+        // If no other users are linked to this device, clear its state so it stops updating.
+        const remainingLinks = await UserDeviceRole.count({ where: { deviceId: device.uuid } });
+        if (remainingLinks === 0) {
+            const state = await getOrCreateDeviceState(device.uuid);
+            state.albumId = null;
+            state.nextPhotoId = null;
+            state.currentPhotoId = null;
+            state.nextUpdateAt = null;
+            await state.save();
+            console.log("[device:unlink] cleared device state after unlink", { deviceId: device.uuid });
+        }
+
         return res.json({ success: true });
     } catch (error) {
         console.error('Error unlinking device:', error);
