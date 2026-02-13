@@ -45,7 +45,10 @@ async function getRawData(photoId) {
 }
 
 const sendImage = async (client, photoId, options = {}) => {
-    const { chunkTimeoutMs = 20000 } = options;
+    const {
+        chunkTimeoutMs = 20000,
+        deviceId = 'unknown',
+    } = options;
 
     const ensureIdle = async () => {
         const start = Date.now();
@@ -53,7 +56,10 @@ const sendImage = async (client, photoId, options = {}) => {
         while (true) {
             const busy = (typeof client.hasPendingWork === 'function' && client.hasPendingWork()) ||
                          (client.status && client.status !== 'idle');
-            if (!busy) return;
+            if (!busy) {
+                console.log(`[sendImage] device ${deviceId} idle, starting transfer`);
+                return;
+            }
 
             if (typeof client.waitUntilIdle === 'function') {
                 await client.waitUntilIdle();
@@ -62,8 +68,9 @@ const sendImage = async (client, photoId, options = {}) => {
             }
 
             if (Date.now() - start > MAX_WAIT) {
-                throw new Error('Timed out waiting for device to become idle');
+                throw new Error(`Timed out waiting for device ${deviceId} to become idle`);
             }
+            console.log(`[sendImage] device ${deviceId} still busy, waiting...`);
         }
     };
 
@@ -71,6 +78,7 @@ const sendImage = async (client, photoId, options = {}) => {
         await ensureIdle();
 
         const rawBytes = await getRawData(photoId);
+        console.log(`[sendImage] start transfer device=${deviceId} photo=${photoId} bytes=${rawBytes.length}`);
 
         client.send([0x20]); // Ask to start image transfer
         let sentBytes = 0;
@@ -79,6 +87,7 @@ const sendImage = async (client, photoId, options = {}) => {
         while (sentBytes < rawBytes.length) {
             const sizeData = await client.waitForResponse(0x21, chunkTimeoutMs);
             const size = sizeData.readUInt32LE(0);
+            console.log(`[sendImage] device=${deviceId} requested chunk size=${size} offset=${sentBytes}`);
             if (!started) {
                 started = true;
                 if (typeof options.onStart === 'function') {
@@ -94,7 +103,7 @@ const sendImage = async (client, photoId, options = {}) => {
             sentBytes += size;
         }
 
-        console.log("Done sending");
+        console.log(`[sendImage] Done sending to device=${deviceId}`);
     };
 
     if (typeof client.enqueueTask === 'function') {

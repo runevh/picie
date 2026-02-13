@@ -24,6 +24,10 @@ const pushNextPhotoToDevice = async (deviceId, client) => {
     return null;
   }
 
+  console.log(`[imageUpdate] pushNextPhotoToDevice start`, {
+    deviceId,
+    clientStatus: client?.status || 'unknown',
+  });
   const initialState = await ensureNextState(deviceId);
   if (!initialState.nextPhotoId) {
     console.warn(`[imageUpdate] No next photo planned for device ${deviceId} (album: ${initialState.albumId || 'none'})`);
@@ -34,6 +38,12 @@ const pushNextPhotoToDevice = async (deviceId, client) => {
 
   try {
     const sendTask = async () => {
+      console.log(`[imageUpdate] enqueue send-image task`, {
+        deviceId,
+        nextPhotoId: initialState.nextPhotoId,
+        currentPhotoId: initialState.currentPhotoId || null,
+      });
+
       let state = await ensureNextState(deviceId);
       if (!state.nextPhotoId) {
         console.warn(`[imageUpdate] No next photo planned when executing send for device ${deviceId}`);
@@ -50,6 +60,7 @@ const pushNextPhotoToDevice = async (deviceId, client) => {
 
       await sendImage(client, photoId, {
         chunkTimeoutMs: 30000,
+        deviceId,
         onStart: async () => {
           // Mark current when bytes begin flowing, then plan the next image.
           const freshState = await getOrCreateDeviceState(deviceId);

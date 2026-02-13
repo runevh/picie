@@ -181,29 +181,49 @@ const startUpdateScheduler = (tcpServer) => {
     const devices = tcpServer.getConnectedDevices();
     for (const [uuid] of devices.entries()) {
       const state = await ensureState(uuid);
-      if (!state.nextUpdateAt || state.nextUpdateAt <= Date.now()) {
-        const client = devices.get(uuid);
-
-        if (client?.hasPendingWork && client.hasPendingWork()) {
-          console.log(`[scheduler] skip device ${uuid}; work already pending (status ${client.status})`);
-          continue;
-        }
-        
-        console.log(`[scheduler] update now for device ${uuid} (current ${state.currentPhotoId || 'none'}, next ${state.nextPhotoId || 'none'})`, {
-          scheduleMode: state.scheduleMode,
-          timesOfDay: state.timesOfDay,
-          intervalMinutes: state.intervalMinutes,
-          scheduledFor: state.nextUpdateAt ? new Date(state.nextUpdateAt).toISOString() : "immediate",
+      const now = Date.now();
+      if (state.nextUpdateAt && state.nextUpdateAt > now) {
+        console.log(`[scheduler] device ${uuid} not due yet`, {
+          now: new Date(now).toISOString(),
+          nextUpdateAt: new Date(state.nextUpdateAt).toISOString(),
         });
-        try {
-          const updatedState = await pushNextPhotoToDevice(uuid, client);
-          if (!updatedState?.nextUpdateAt) {
-            await planNextUpdate(state);
-          }
-        } catch (err) {
-          console.error(`[scheduler] failed to push photo to device ${uuid}`, err);
+        continue;
+      }
+
+      if (!state.nextUpdateAt) {
+        console.log(`[scheduler] device ${uuid} has no nextUpdateAt; proceeding immediately`);
+      }
+
+      const client = devices.get(uuid);
+      const pending = client?.hasPendingWork && client.hasPendingWork();
+      console.log(`[scheduler] ready check`, {
+        deviceId: uuid,
+        clientStatus: client?.status || 'unknown',
+        pendingWork: pending,
+        currentPhotoId: state.currentPhotoId || null,
+        nextPhotoId: state.nextPhotoId || null,
+        nextUpdateAt: state.nextUpdateAt ? new Date(state.nextUpdateAt).toISOString() : "immediate",
+      });
+
+      if (pending) {
+        console.log(`[scheduler] skip device ${uuid}; work already pending (status ${client.status})`);
+        continue;
+      }
+      
+      console.log(`[scheduler] update now for device ${uuid} (current ${state.currentPhotoId || 'none'}, next ${state.nextPhotoId || 'none'})`, {
+        scheduleMode: state.scheduleMode,
+        timesOfDay: state.timesOfDay,
+        intervalMinutes: state.intervalMinutes,
+        scheduledFor: state.nextUpdateAt ? new Date(state.nextUpdateAt).toISOString() : "immediate",
+      });
+      try {
+        const updatedState = await pushNextPhotoToDevice(uuid, client);
+        if (!updatedState?.nextUpdateAt) {
           await planNextUpdate(state);
         }
+      } catch (err) {
+        console.error(`[scheduler] failed to push photo to device ${uuid}`, err);
+        await planNextUpdate(state);
       }
     }
   }, 60 * 1000);

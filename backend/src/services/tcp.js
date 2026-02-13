@@ -268,6 +268,7 @@ class TcpClient {
     const promise = new Promise((resolve, reject) => {
       this.pendingTask = { taskFn, resolve, reject, label };
     });
+    console.log(`[tcp] enqueueTask device=${this.uuid || 'unknown'} label=${label}`);
     this.processTaskQueue();
     return promise;
   }
@@ -275,6 +276,7 @@ class TcpClient {
   async processTaskQueue() {
     if (this.processingTask) return;
     this.processingTask = true;
+    console.log(`[tcp] processTaskQueue start device=${this.uuid || 'unknown'}`);
     while (this.pendingTask) {
       // Wait until the device reports idle before choosing which task to run.
       try {
@@ -312,11 +314,13 @@ class TcpClient {
         // If another task arrived after clearing pendingTask, process it next loop iteration.
         const result = await current.taskFn();
         current.resolve(result);
+        console.log(`[tcp] task completed device=${this.uuid || 'unknown'} label=${current.label}`);
       } catch (err) {
         console.error(`[tcp] task "${current.label}" failed for device ${this.uuid}`, err);
         current.reject(err);
       }
     }
+    console.log(`[tcp] processTaskQueue end device=${this.uuid || 'unknown'}`);
     this.processingTask = false;
   }
 
