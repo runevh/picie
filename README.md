@@ -1,3 +1,8 @@
+# Deployment
+
+Production uses Caddy for HTTPS, frontend static files, and API proxying.
+See [deployment instructions](deploy/README.md).
+
 # TCP Communication
 This describes the TCP communication protocol between the frame and backend server.
 

@@ -1,0 +1,18 @@
+# Import this file from /etc/caddy/Caddyfile after installing it as
+# /etc/caddy/sites-enabled/picie.caddy. Caddy manages HTTPS certificates.
+picie.runevh.net {
+	encode zstd gzip
+
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy 127.0.0.1:7734
+	}
+
+	handle {
+		root * /var/www/picie/current
+		try_files {path} /index.html
+		@index path /index.html
+		header @index Cache-Control "no-cache"
+		file_server
+	}
+}

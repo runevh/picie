@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Copy package.json and install dependencies
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the application
 COPY . .
@@ -14,9 +14,6 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Use Nginx to serve
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Export static files for the host's Caddy service (no frontend container).
+FROM scratch AS static
+COPY --from=builder /app/dist /

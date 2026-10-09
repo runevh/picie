@@ -1,5 +1,9 @@
 name: Deploy
 
+concurrency:
+  group: picie-production
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
   push:
@@ -16,6 +20,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 20m
           script: |
             set -e
             mkdir -p ~/.ssh
@@ -26,5 +31,6 @@ jobs:
             cd /srv/picie
             git fetch origin
             git reset --hard origin/main
-            docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml up -d --build db backend
+            bash deploy/publish-frontend.sh
 
