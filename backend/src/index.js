@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const { connectDB } = require('./config/db');
-const { register, login, fetchUser, logout } = require('../src/controller/userController');
+const { register, login, fetchUser, logout, updateProfile } = require('../src/controller/userController');
 const { createDevice, getAllDevices, startPairing, completePairing, cancelPairing, getUserDevices, deleteDevice, unlinkDevice, rebootDevice, getDeviceLogs, getDeviceStatus, updateDeviceSettings, uploadFirmware } = require('../src/controller/deviceController')
 const { auth, admin } = require('../src/middleware/auth');
 const http = require('http');
@@ -40,6 +40,7 @@ router.post('/register', register);
 router.post('/login', login);
 router.get('/auth', auth, fetchUser);
 router.post('/logout', auth, logout);
+router.post('/user/update', auth, updateProfile);
 
 router.post('/photo/upload', auth, savePhoto);
 router.post('/photo/albums/create', auth, createAlbum);
