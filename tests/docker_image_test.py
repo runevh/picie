@@ -96,6 +96,7 @@ class DockerImageTest(unittest.TestCase):
                     time.sleep(1)
                 else:
                     self.fail('Backend did not become ready: ' + docker('logs', containers[0]))
+                docker('exec', containers[0], 'node', 'scripts/check-image-runtime.js')
                 docker('exec', containers[0], 'node', '-e', check)
                 self.assertEqual(docker('exec', containers[0], 'cat', '/app/photos/runtime-test'), 'runtime storage')
             finally:
