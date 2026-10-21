@@ -216,7 +216,7 @@ const stats = useMemo(
                 Quick stats for your albums.
               </Text>
             </Group>
-            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+            <SimpleGrid data-testid="album-statistics" cols={{ base: 1, sm: 2 }} spacing="md">
               {stats.map(({ label, value, description, icon }) => (
                 <MetricTile
                   key={label}

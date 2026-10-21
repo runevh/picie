@@ -1,15 +1,6 @@
+from pathlib import Path
 import subprocess
-import os
 
-print("Running the script...")
-
-
-def generate_html_header(input_file, output_file):
-    command = ['xxd', '-i', input_file, '>', output_file]
-    subprocess.run(' '.join(command), shell=True)
-
-input_html = "src/static/page.html"
-output_header = "src/page_html.h"
-
-generate_html_header(input_html, output_header)
-print(f"Generated {output_header} from {input_html}")
+project = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
+with (project / "src/page_html.h").open("wb") as output:
+    subprocess.run(["xxd", "-i", "src/static/page.html"], cwd=project, stdout=output, check=True)
