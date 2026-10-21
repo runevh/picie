@@ -2,6 +2,12 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
+const { createLoginAttempts } = require('../services/auth/loginAttempts');
+const consumeLoginAttempt = createLoginAttempts();
+
+const throttled = (res, seconds) => res.set('Retry-After', String(seconds)).status(429).json({
+    message: `Too many login attempts. Try again in ${seconds} seconds.`,
+});
 
 const publicUser = (user) => ({
     username: user.username,
@@ -93,7 +99,14 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
     const { username, password, } = req.body;
-    if (typeof password !== 'string' || !password || bcrypt.truncates(password)) {
+    // Use the actual peer, never a caller-supplied forwarded header.
+    const retryAfter = consumeLoginAttempt([
+        [`client:${req.socket?.remoteAddress || 'unknown'}`, 60],
+        [`login:${typeof username === 'string' ? username.trim().toLowerCase() : 'invalid'}`, 10],
+    ]);
+    if (retryAfter) return throttled(res, retryAfter);
+    if (typeof username !== 'string' || !username || username.length > 254 ||
+        typeof password !== 'string' || !password || bcrypt.truncates(password)) {
         return res.status(400).json({ message: 'Incorrect password or username / email.' });
     }
 
@@ -109,6 +122,9 @@ const login = async (req, res) => {
             return res.status(400).json({ message: 'Incorrect password or username / email.' });
         }
 
+        // Email and username share the same account budget.
+        const accountRetry = consumeLoginAttempt([[`account:${user.id}`, 10]]);
+        if (accountRetry) return throttled(res, accountRetry);
         const passCorrect = await bcrypt.compare(password, user.password);
 
         if (!passCorrect) {
