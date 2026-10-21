@@ -17,7 +17,7 @@ private:
     bool hasWifiCredentials() const;
     bool ensureWifiConnection();
     bool ensureTcpConnection(bool blocking);
-    void enterProvisioningMode();
+    void pollProvisioningCommand();
     void registerMessageHandlers();
     void resetReconnectBackoff();
     void increaseReconnectBackoff();
@@ -25,7 +25,7 @@ private:
     AppConfig config_;
     String wifiSsid_;
     String wifiPassword_;
-    bool provisioningMode_ = false;
+    String setupCommand_;
     unsigned long lastReconnectAttempt_ = 0;
     unsigned long currentReconnectDelay_;
     uint8_t tcpConnectionFailures_ = 0;
