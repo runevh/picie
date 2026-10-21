@@ -8,6 +8,13 @@ const { getOrCreateDeviceState, markDeviceUpdateSent } = require('../schedules/u
 
 const AUTH_MSG_LENGTH = 98; // UUID(36) + hex key(62)
 const MAX_AUTH_FRAME_BYTES = AUTH_MSG_LENGTH + 2; // Optional CR followed by LF
+// Device-to-server frame lengths, including the opcode byte.
+const MESSAGE_LENGTHS = new Map([
+  [0x02, 1], // Heartbeat pong
+  [0x21, 5], // Image chunk request: uint32 LE
+  [0x31, 5], // Firmware chunk request: uint32 LE
+  [0x40, 1], [0x41, 1], [0x42, 1], [0x43, 1], [0x44, 1], [0x4f, 1], // Status
+]);
 const HEARTBEAT_BASE_MS = 300_000;      // 5 minutes between healthy pings
 const HEARTBEAT_RETRY_MS = 5_000;       // retry interval after a miss
 const HEARTBEAT_MAX_RETRIES = 3;        // destroy after this many consecutive misses
@@ -88,7 +95,7 @@ class TcpClient {
   onData(data) {
     if (this.isClosed()) return;
     if (this.authenticated) {
-      this.handleData(data);
+      this.readMessages(data);
       return;
     }
 
@@ -156,6 +163,33 @@ class TcpClient {
       this.closeConnection();
     } finally {
       this.authPending = false;
+    }
+  }
+
+  readMessages(data) {
+    let offset = 0;
+    while (offset < data.length && !this.isClosed()) {
+      const code = this.buffer.length ? this.buffer[0] : data[offset];
+      const length = MESSAGE_LENGTHS.get(code);
+      if (!length) {
+        this.closeConnection();
+        return;
+      }
+
+      // Copy only enough bytes for one frame; retained input never exceeds 5 bytes.
+      const count = Math.min(length - this.buffer.length, data.length - offset);
+      this.buffer = Buffer.concat([this.buffer, data.subarray(offset, offset + count)]);
+      offset += count;
+      if (this.buffer.length < length) return;
+
+      const message = this.buffer;
+      this.buffer = Buffer.alloc(0);
+      try {
+        this.handleData(message);
+      } catch (err) {
+        console.warn('Invalid device message:', err.message);
+        this.closeConnection();
+      }
     }
   }
 
