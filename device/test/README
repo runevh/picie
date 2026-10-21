@@ -1,11 +1,26 @@
+Run `pio test -e native` for the Wi-Fi serialization and trusted-connection tests.
+Run `pio run -e esp12e` to compile the release firmware, then from the repository
+root run `python3 -m unittest discover -s tests -p firmware_security_test.py -v`.
+The artifact check verifies that ArduinoOTA is absent and the backend firmware
+update handler is still linked.
 
-This directory is intended for PlatformIO Test Runner and project tests.
+Native TLS tests use a fake transport/certificate parser. They verify that
+missing or invalid trust configuration cannot initiate a connection, TLS failures
+cannot reach the identity-sending callback, reconfiguration clears previous
+trust, and failed authentication closes the connection. They do not validate
+BearSSL's certificate parser or a real TLS handshake.
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+The device now requires TLS, including for custom AppConfig instances. Provide a
+valid ROOT_CA_CERT_FILE or ROOT_CA_CERT when building. There is no plaintext or
+unverified TLS fallback. Provisioning over serial remains available; firmware
+updates use the backend's existing authenticated device connection.
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+Before release, verify on an isolated device using synthetic identity credentials:
+- Missing, malformed, and empty CA configurations cannot connect.
+- Untrusted, expired, and wrong-host server certificates cannot receive identity
+  bytes, while the intended host with a valid certificate can authenticate.
+- The local ArduinoOTA service is unavailable and an unauthenticated OTA attempt
+  cannot replace firmware.
+- An authorized backend firmware update still installs successfully.
+
+The CI build and native tests do not replace these hardware checks.
