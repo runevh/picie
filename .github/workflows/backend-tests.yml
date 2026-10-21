@@ -87,16 +87,24 @@ jobs:
       - run: pio run -d device -e esp12e
       - run: python -m unittest discover -s tests -p firmware_security_test.py -v
 
+  deployment-tests:
+    name: Deployment tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tests -p deployment_test.py -v
+
   report:
     name: Test summary
     if: always()
-    needs: [tests, browser-tests, firmware-tests]
+    needs: [tests, browser-tests, firmware-tests, deployment-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Write combined report
         env:
           BACKEND: ${{ needs.tests.result }}
           BROWSER: ${{ needs.browser-tests.result }}
+          DEPLOYMENT: ${{ needs.deployment-tests.result }}
           FIRMWARE: ${{ needs.firmware-tests.result }}
         run: |
-          printf '## Test results\n\n| Check | Result |\n|---|---|\n| Backend | %s |\n| Browser | %s |\n| Firmware tests and build | %s |\n' "$BACKEND" "$BROWSER" "$FIRMWARE" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Test results\n\n| Check | Result |\n|---|---|\n| Backend | %s |\n| Browser | %s |\n| Firmware tests and build | %s |\n| Deployment | %s |\n' "$BACKEND" "$BROWSER" "$FIRMWARE" "$DEPLOYMENT" >> "$GITHUB_STEP_SUMMARY"
