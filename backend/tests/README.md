@@ -7,3 +7,14 @@ conversion. At most two conversions run concurrently; additional requests receiv
 `node scripts/test-runtime-install.js` verifies an isolated production install,
 including the actual Sharp/native library versions, not just the npm manifest.
 Minimum versions follow the upstream [Sharp security advisories](https://github.com/lovell/sharp/security/advisories).
+
+`photoController.test.js` exercises controller responses with an isolated SQLite
+database, real encryption, and temporary photo files. Image conversion is stubbed;
+its behavior is covered separately in `imageProcessing.test.js`. The controller
+tests cover upload failures, access checks, corrupt previews, and deletion recovery.
+
+Run them from the repository root:
+
+```sh
+npm test --prefix backend -- --runInBand photoController
+```
