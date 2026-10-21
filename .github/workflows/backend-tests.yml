@@ -1,0 +1,43 @@
+name: Backend authorization tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authorization-tests:
+    name: Device album authorization
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+      - name: Run authorization tests
+        run: npm test -- --ci --runInBand --runTestsByPath tests/deviceAlbumAuthorization.test.js --coverage=false --json --outputFile=test-results.json
+      - name: Write test summary
+        if: always()
+        run: node scripts/test-summary.js
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-authorization-results
+          path: backend/test-results.json
+          if-no-files-found: ignore
+          retention-days: 14

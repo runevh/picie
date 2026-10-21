@@ -1,3 +1,4 @@
+const { getDevicePhoto } = require('./albumAccess');
 const { sendImage } = require('../photo/imageSender');
 const {
   getOrCreateDeviceState,
@@ -10,6 +11,10 @@ const ensureNextState = async (deviceId) => {
   let state = await getOrCreateDeviceState(deviceId);
   if (!state.nextPhotoId) {
     state = await ensureNextPlannedPhoto(deviceId);
+  }
+  if (!await getDevicePhoto(state, state.nextPhotoId)) {
+    state.nextPhotoId = null;
+    await state.save();
   }
   return state;
 };
@@ -62,6 +67,14 @@ const pushNextPhotoToDevice = async (deviceId, client) => {
         chunkTimeoutMs: 30000,
         deviceId,
         enqueue: false, // already inside enqueueTask
+        authorize: async (started = false) => {
+          // Once sending, validate the captured photo; the scheduler may already have advanced.
+          const fresh = await getOrCreateDeviceState(deviceId);
+          if (fresh.albumId !== state.albumId || (!started && fresh.nextPhotoId !== photoId) ||
+              !await getDevicePhoto(fresh, photoId)) {
+            throw new Error('Photo access changed during delivery');
+          }
+        },
         onStart: async () => {
           // Mark current when bytes begin flowing, then plan the next image.
           const freshState = await getOrCreateDeviceState(deviceId);

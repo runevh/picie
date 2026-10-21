@@ -1,3 +1,4 @@
+const { getDeviceAlbum } = require('../services/device/albumAccess');
 const { DeviceState, DEFAULT_INTERVAL_MINUTES } = require('../models/deviceState');
 const { Photo } = require('../models/photo');
 
@@ -95,9 +96,10 @@ const scheduleNextRun = async (state) => {
 };
 
 const selectNextPhotoId = async (state) => {
-  if (!state.albumId) return null;
+  const album = await getDeviceAlbum(state.deviceId, state.albumId);
+  if (!album) return null;
   const photos = await Photo.findAll({
-    where: { albumId: state.albumId },
+    where: { albumId: album.id, owner: album.owner },
     order: [['createdAt', 'ASC']],
     attributes: ['id'],
   });
@@ -120,9 +122,7 @@ const selectNextPhotoId = async (state) => {
 
 const planNextUpdate = async (state) => {
   const nextPhotoId = await selectNextPhotoId(state);
-  if (nextPhotoId !== null) {
-    state.nextPhotoId = nextPhotoId;
-  }
+  state.nextPhotoId = nextPhotoId;
   await scheduleNextRun(state);
   return state;
 };
@@ -130,10 +130,8 @@ const planNextUpdate = async (state) => {
 const ensureNextPlannedPhoto = async (deviceId) => {
   const state = await ensureState(deviceId);
   const nextPhotoId = await selectNextPhotoId(state);
-  if (nextPhotoId !== null) {
-    state.nextPhotoId = nextPhotoId;
-    await state.save();
-  }
+  state.nextPhotoId = nextPhotoId;
+  await state.save();
   return state;
 };
 

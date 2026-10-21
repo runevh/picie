@@ -79,7 +79,9 @@ const sendImage = async (client, photoId, options = {}) => {
     const doSend = async () => {
         await ensureIdle();
 
+        if (options.authorize) await options.authorize();
         const rawBytes = await getRawData(photoId);
+        if (options.authorize) await options.authorize();
         console.log(`[sendImage] start transfer device=${deviceId} photo=${photoId} bytes=${rawBytes.length}`);
 
         client.send([0x20]); // Ask to start image transfer
@@ -91,6 +93,7 @@ const sendImage = async (client, photoId, options = {}) => {
             const size = sizeData.readUInt32LE(0);
             console.log(`[sendImage] device=${deviceId} requested chunk size=${size} offset=${sentBytes}`);
             if (!started) {
+                if (options.authorize) await options.authorize();
                 started = true;
                 if (typeof options.onStart === 'function') {
                     try {
@@ -100,6 +103,7 @@ const sendImage = async (client, photoId, options = {}) => {
                     }
                 }
             }
+            if (options.authorize) await options.authorize(started);
             client.send(rawBytes.subarray(sentBytes, sentBytes + size));
             console.log("Sent " + size+ " bytes");
             sentBytes += size;
