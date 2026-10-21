@@ -9,3 +9,9 @@ It removes only its own containers, network, volume, and image tags. It does not
 audit previously deployed images or production caches; those need a separate
 inspection before considering historical exposure resolved.
 
+
+The backend lockfile is tracked and runtime images install with `npm ci --omit=dev`.
+Run `node backend/scripts/test-runtime-install.js` to verify a clean production-only
+installation, direct dependency resolution, password hashing, and UUID generation.
+This check uses a temporary directory and needs npm registry access. The Docker
+startup check above also exercises these dependencies against PostgreSQL.
