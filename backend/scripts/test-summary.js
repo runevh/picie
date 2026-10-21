@@ -16,7 +16,7 @@ if (!fs.existsSync(reportPath)) {
   }
 }
 
-summary += '\nScope: photo uploads, device album authorization, and photo delivery.\n';
+summary += '\nScope: registration privileges, photo uploads, device album authorization, and photo delivery.\n';
 if (process.env.GITHUB_STEP_SUMMARY) {
   fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
 } else {
