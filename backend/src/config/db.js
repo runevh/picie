@@ -17,6 +17,8 @@ const sequelize = process.env.NODE_ENV !== 'test' ? (new Sequelize(
 
 const connectDB = async () => {
     await sequelize.authenticate();
+    const { migrateScheduleTimezone } = require('../migrations/scheduleTimezone');
+    await migrateScheduleTimezone(sequelize);
     await sequelize.sync();
 };
 

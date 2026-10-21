@@ -11,6 +11,7 @@ export type Frame = {
   scheduleMode?: "interval" | "times" | null;
   intervalMinutes?: number | null;
   timesOfDay?: string[];
+  timeZone?: string;
   sharedWith?: string[];
   refreshSchedule?: "hourly" | "four-hours" | "daily-midnight" | "daily-morning";
   lastSeen?: string | Date | null;

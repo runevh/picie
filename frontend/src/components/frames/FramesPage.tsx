@@ -108,6 +108,7 @@ export function FramesPage() {
             scheduleMode: (device as any).scheduleMode ?? null,
             intervalMinutes: (device as any).intervalMinutes ?? null,
             timesOfDay: Array.isArray((device as any).timesOfDay) ? (device as any).timesOfDay : [],
+            timeZone: (device as any).timeZone || "UTC",
             refreshSchedule: "hourly",
             lastSeen,
             nextUpdate: (device as any).nextUpdate,
@@ -181,7 +182,7 @@ export function FramesPage() {
   const handleSave = async (
     updatedFrame: Frame,
     opts: {
-      schedule: { mode: "interval" | "times"; intervalMinutes: number; timesOfDay: string[] };
+      schedule: { mode: "interval" | "times"; intervalMinutes: number; timesOfDay: string[]; timeZone: string };
       closeAfterSave?: boolean;
     }
   ) => {
@@ -199,6 +200,7 @@ export function FramesPage() {
           mode: opts.schedule.mode,
           intervalMinutes: opts.schedule.intervalMinutes,
           timesOfDay: timesPayload,
+          timeZone: opts.schedule.timeZone,
         },
         albumId: updatedFrame.currentAlbum,
       });
@@ -220,6 +222,7 @@ export function FramesPage() {
           scheduleMode: data.scheduleMode ?? updatedFrame.scheduleMode,
           intervalMinutes: data.intervalMinutes ?? updatedFrame.intervalMinutes,
           timesOfDay: Array.isArray(data.timesOfDay) ? data.timesOfDay : updatedFrame.timesOfDay,
+          timeZone: data.timeZone ?? updatedFrame.timeZone,
         };
         setFrames((prev) => prev.map((frame) => (frame.id === updatedFrame.id ? frameWithUpdate : frame)));
         if (!shouldClose) {

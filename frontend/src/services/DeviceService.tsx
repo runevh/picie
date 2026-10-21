@@ -50,7 +50,7 @@ export const deviceService = {
   updateDevice: async (payload: {
     id: string;
     name?: string;
-    schedule?: { mode?: string; intervalMinutes?: number; timesOfDay?: string[] };
+    schedule?: { mode?: string; intervalMinutes?: number; timesOfDay?: string[]; timeZone?: string };
     albumId?: string | null;
   }) => {
     return await postRequest("device/update", payload);

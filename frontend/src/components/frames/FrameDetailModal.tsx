@@ -11,6 +11,7 @@ import {
   Paper,
   ScrollArea,
   SegmentedControl,
+  Select,
   SimpleGrid,
   Stack,
   Text,
@@ -75,7 +76,7 @@ type FrameDetailModalProps = {
   onSave: (
     frame: Frame,
     options: {
-      schedule: { mode: "interval" | "times"; intervalMinutes: number; timesOfDay: string[] };
+      schedule: { mode: "interval" | "times"; intervalMinutes: number; timesOfDay: string[]; timeZone: string };
       closeAfterSave?: boolean;
     }
   ) => void;
@@ -102,6 +103,8 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
   const [albumDetailOpen, setAlbumDetailOpen] = useState(false);
   const [updateMode, setUpdateMode] = useState<"interval" | "times">(frame.scheduleMode || "interval");
   const [intervalMinutes, setIntervalMinutes] = useState(frame.intervalMinutes || 60);
+  const [timeZone, setTimeZone] = useState(frame.timeZone || "UTC");
+  const [initialTimeZone, setInitialTimeZone] = useState(frame.timeZone || "UTC");
   const [timesOfDay, setTimesOfDay] = useState<string[]>(sortAndNormalizeTimes(defaultTimes));
   const [initialName, setInitialName] = useState(frame.name);
   const [initialAlbumId, setInitialAlbumId] = useState<string | null>(frame.currentAlbum ?? frame.album?.id ?? null);
@@ -126,9 +129,11 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
     const scheduleModeChanged = updateMode !== initialScheduleMode;
     const intervalChanged = intervalMinutes !== initialIntervalMinutes;
     const timesChanged = currentTimesNormalized.join(",") !== initialTimesNormalized.join(",");
-    return nameChanged || albumChanged || scheduleModeChanged || intervalChanged || timesChanged;
+    return nameChanged || albumChanged || scheduleModeChanged || intervalChanged || timesChanged || timeZone !== initialTimeZone;
   }, [
     activeAlbum,
+    timeZone,
+    initialTimeZone,
     currentTimesNormalized,
     initialAlbumId,
     initialIntervalMinutes,
@@ -174,6 +179,8 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
       const nextInterval = frame.intervalMinutes || 60;
       setIntervalMinutes(nextInterval);
       setInitialIntervalMinutes(nextInterval);
+      setTimeZone(frame.timeZone || "UTC");
+      setInitialTimeZone(frame.timeZone || "UTC");
       setTimesOfDay(normalized);
       setInitialTimesNormalized(normalized);
       setNewTime(normalized[0] || "08:00");
@@ -241,6 +248,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
           mode: updateMode,
           intervalMinutes,
           timesOfDay,
+          timeZone,
         },
         closeAfterSave,
       }
@@ -352,6 +360,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
             ? "Connected"
             : "Offline";
   const nextTriggerLabel = (() => {
+    if (hasUnsavedChanges) return "Save to calculate next update";
     if (liveNextUpdate) {
       return String(liveNextUpdate);
     }
@@ -360,6 +369,7 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
       scheduleMode: updateMode,
       intervalMinutes,
       timesOfDay,
+      timeZone,
     });
     return tsLabel;
   })();
@@ -586,8 +596,12 @@ export function FrameDetailModal({ frame, liveFrame, opened, onClose, onSave, on
           </Stack>
         ) : (
           <Stack gap="xs" w="100%">
+            <Select label="Schedule timezone" searchable allowDeselect={false}
+              data={Array.from(new Set(["UTC", timeZone, ...(Intl as any).supportedValuesOf("timeZone")])) as string[]}
+              value={timeZone} onChange={value => value && setTimeZone(value)} />
+            <Text size="xs" c="dimmed">Skipped clock times move forward; repeated times run once, at their first occurrence.</Text>
             <Text size="sm" c="dimmed">
-              Times of day
+              Times of day ({timeZone})
             </Text>
             {isMobile ? (
               <Stack gap={6} w="100%">
@@ -1082,30 +1096,12 @@ const computeNextTriggerTime = ({
   liveNextUpdate?: string | number | null;
   scheduleMode?: "interval" | "times" | null;
   intervalMinutes?: number | null;
-  timesOfDay?: string[];
+  timesOfDay?: string[]; timeZone?: string;
 }) => {
   const liveTs = parseTimestamp(liveNextUpdate);
   if (liveTs) return liveTs;
 
-  if (scheduleMode === "times" && Array.isArray(timesOfDay) && timesOfDay.length > 0) {
-    const normalized = sortAndNormalizeTimes(timesOfDay);
-    if (normalized.length > 0) {
-      const now = new Date();
-      const candidates = normalized
-        .map((t) => {
-          const [h, m] = String(t || "").split(":").map((v) => parseInt(v, 10));
-          const dt = new Date(now);
-          dt.setHours(isNaN(h) ? 0 : h, isNaN(m) ? 0 : m, 0, 0);
-          if (dt <= now) {
-            dt.setDate(dt.getDate() + 1);
-          }
-          return dt.getTime();
-        })
-        .filter(Boolean)
-        .sort((a, b) => a - b);
-      return candidates[0] || null;
-    }
-  }
+  if (scheduleMode === "times") return null;
 
   const minutes = Math.max(1, intervalMinutes || 60);
   return Date.now() + minutes * 60 * 1000;
@@ -1115,12 +1111,12 @@ const formatNextTriggerLabel = (params: {
   liveNextUpdate?: string | number | null;
   scheduleMode?: "interval" | "times" | null;
   intervalMinutes?: number | null;
-  timesOfDay?: string[];
+  timesOfDay?: string[]; timeZone?: string;
 }) => {
   const ts = computeNextTriggerTime(params);
   if (!ts) return "Unknown";
   const dt = new Date(ts);
-  return dt.toLocaleString();
+  return dt.toLocaleString(undefined, { timeZone: params.timeZone || "UTC", timeZoneName: "short" });
 };
 
 type InsightCardProps = {

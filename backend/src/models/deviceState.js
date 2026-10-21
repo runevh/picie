@@ -36,6 +36,11 @@ const DeviceState = sequelize.define('DeviceState', {
     allowNull: false,
     defaultValue: DEFAULT_INTERVAL_MINUTES,
   },
+  timeZone: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'UTC',
+  },
   timesOfDay: {
     // Stored as JSON array of "HH:mm" strings for cross-db compatibility (SQLite tests, Postgres prod)
     type: DataTypes.JSON,

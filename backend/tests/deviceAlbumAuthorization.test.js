@@ -335,3 +335,18 @@ test('frame preview uses the authorized photo delivery path', async () => {
     await triggerFramePreview({}, missing);
     expect(missing.statusCode).toBe(404);
 });
+
+test('invalid timezone rejects settings before changing the frame name or schedule', async () => {
+    const before = (await state.reload()).toJSON();
+    const res = await assign(aliceAlbum.id, { name: 'Should not change', schedule: { mode: 'times', timesOfDay: ['09:00'], timeZone: 'invalid/zone' } });
+    expect(res.statusCode).toBe(400);
+    expect((await state.reload()).toJSON()).toEqual(before);
+    expect((await frame.reload()).name).toBe('Alice frame');
+});
+
+test('device settings return and persist the selected timezone', async () => {
+    const res = await assign(aliceAlbum.id, { schedule: { mode: 'times', timesOfDay: ['09:00'], timeZone: 'Europe/Brussels' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data.timeZone).toBe('Europe/Brussels');
+    expect((await state.reload()).timeZone).toBe('Europe/Brussels');
+});
