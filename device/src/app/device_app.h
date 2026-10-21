@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include <ArduinoOTA.h>
 
 #include "app_config.h"
 
@@ -18,7 +17,6 @@ private:
     bool hasWifiCredentials() const;
     bool ensureWifiConnection();
     bool ensureTcpConnection(bool blocking);
-    void setupOta();
     void enterProvisioningMode();
     void registerMessageHandlers();
     void resetReconnectBackoff();
@@ -30,6 +28,5 @@ private:
     bool provisioningMode_ = false;
     unsigned long lastReconnectAttempt_ = 0;
     unsigned long currentReconnectDelay_;
-    bool otaInitialized_ = false;
     uint8_t tcpConnectionFailures_ = 0;
 };

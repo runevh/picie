@@ -53,10 +53,6 @@ void DeviceApp::loop() {
         return;
     }
 
-    if (WiFi.status() == WL_CONNECTED && otaInitialized_) {
-        ArduinoOTA.handle();
-    }
-
     if (is_connected_to_tcp_server()) {
         processIncomingMessages();
         delay(config_.messagePollingDelayMs);
@@ -145,9 +141,6 @@ bool DeviceApp::hasWifiCredentials() const {
 
 bool DeviceApp::ensureWifiConnection() {
     if (WiFi.status() == WL_CONNECTED) {
-        if (!otaInitialized_) {
-            setupOta();
-        }
         return true;
     }
 
@@ -161,7 +154,6 @@ bool DeviceApp::ensureWifiConnection() {
         return false;
     }
 
-    setupOta();
     return true;
 }
 
@@ -224,38 +216,6 @@ void DeviceApp::registerMessageHandlers() {
     register_handler(0x01, [](const uint8_t*, size_t) {
         send_message(static_cast<uint8_t>(0x02), nullptr, 0);
     });
-}
-
-void DeviceApp::setupOta() {
-    if (otaInitialized_) {
-        return;
-    }
-
-    ArduinoOTA.onStart([]() {
-        String type = ArduinoOTA.getCommand() == U_FLASH ? "sketch" : "filesystem";
-        Serial.println("OTA Start updating " + type);
-    });
-
-    ArduinoOTA.onEnd([]() {
-        Serial.println("OTA End");
-    });
-
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        Serial.printf("OTA Progress: %u%%\r", (progress / (total / 100)));
-    });
-
-    ArduinoOTA.onError([](ota_error_t error) {
-        Serial.printf("OTA Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-        else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
-
-    ArduinoOTA.begin();
-    otaInitialized_ = true;
-    Serial.println("OTA ready");
 }
 
 void DeviceApp::resetReconnectBackoff() {

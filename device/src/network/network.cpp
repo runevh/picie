@@ -1,15 +1,14 @@
 #include "network.h"
+#include "trusted_connection.h"
 #include <storage/storage.h>
 #include <ArduinoJson.h>
 #include <base64.h>
 #include <cstring>
 #include <WiFiClientSecureBearSSL.h>
 
-// Global clients; pointer selects secure vs. plain based on environment.
-WiFiClient plainClient;
 WiFiClientSecure secureClient;
-Client *client = &plainClient;
-BearSSL::X509List *rootTrustAnchor = nullptr;
+Client *client = &secureClient;
+TrustedConnection<WiFiClientSecure, BearSSL::X509List> trustedConnection(secureClient);
 
 // Built-in handlers: keep the device responsive to server health checks.
 static void handle_ping(const uint8_t *, size_t) {
@@ -47,73 +46,27 @@ bool connect_to_wifi(String ssid, String password)
 
 void configure_client(bool useSecureClient, const char *rootCaCert)
 {
-    if (useSecureClient) {
-        // Load provided root CA for validation; fallback to insecure if none given.
-        if (rootCaCert && strlen(rootCaCert) > 0) {
-            delete rootTrustAnchor;
-            rootTrustAnchor = new BearSSL::X509List(rootCaCert);
-            secureClient.setTrustAnchors(rootTrustAnchor);
-        } else {
-            secureClient.setInsecure();
-        }
-        client = static_cast<Client *>(&secureClient);
-    } else {
-        client = static_cast<Client *>(&plainClient);
+    if (!trustedConnection.configure(useSecureClient, rootCaCert)) {
+        Serial.println("Server connection disabled: a valid TLS trust certificate is required.");
     }
 }
 
 bool connect_to_tcp_server(String host, int16_t port)
 {
-    Serial.println("Connecting to TCP server...");
+    Serial.println("Connecting to TLS server...");
+    secureClient.setBufferSizes(512, 512);
+    return trustedConnection.connect(host.c_str(), port, []() {
+        // Credentials are read and sent only after TLS verification succeeds.
+        String uuid = read_at_address(UUID_ADDR);
+        String secret = read_at_address(KEY_ADDR);
+        if (!send_message(uuid + secret)) return false;
 
-    if (client == &secureClient) {
-        secureClient.setBufferSizes(512, 512);
-    }
-
-    if (!client->connect(host.c_str(), port))
-    {
-        Serial.println("Connection to server failed!");
-        return false;
-    }
-
-    Serial.println("Authenticating...");
-
-    String uuid = read_at_address(UUID_ADDR);
-    String secret = read_at_address(KEY_ADDR);
-
-    String auth_message = uuid + secret;
-
-    send_message(auth_message);
-
-    unsigned long startTime = millis();
-    while (!client->available() && millis() - startTime < 2000)
-    {
-        delay(10);
-    }
-
-    if (!client->available()) // Timeout
-    {
-        Serial.println("Server did not respond in time.");
-        client->stop();
-        return false;
-    }
-
-    int response = client->read();
-    Serial.printf("Server responded with: 0x%02X\n", response);
-
-    if (response == 0x10)
-    {
-        Serial.println("Authenticated successfully.");
-        return true;
-    }
-    else
-    {
-        Serial.println("Authentication failed.");
-        client->stop();
-        return false;
-    }
-
-    return true;
+        unsigned long startTime = millis();
+        while (!client->available() && millis() - startTime < 2000) {
+            delay(10);
+        }
+        return client->available() && client->read() == 0x10;
+    });
 }
 
 bool sync_time()

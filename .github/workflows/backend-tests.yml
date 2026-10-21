@@ -83,6 +83,7 @@ jobs:
       - run: python -m unittest discover -s tests -p embedded_portal_test.py -v
       - run: pio test -d device -e native
       - run: pio run -d device -e esp12e
+      - run: python -m unittest discover -s tests -p firmware_security_test.py -v
 
   report:
     name: Test summary
