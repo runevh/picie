@@ -18,3 +18,7 @@ Run them from the repository root:
 ```sh
 npm test --prefix backend -- --runInBand photoController
 ```
+
+`pairingImage.test.js` uses real Sharp rendering and dithering to check the PIN's
+layout, leading zeros, and packed display data. It checks pixel properties rather
+than exact image snapshots so normal font-rendering differences are allowed.
