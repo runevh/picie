@@ -1,6 +1,7 @@
 const {dither } = require('../services/photo/dithering')
 const fs = require("fs");
 const { Photo, Album } = require('../models/photo');
+const { Validator } = require('sequelize');
 const generateName = require('sillyname');
 const path = require('path');
 const { randomBytes, createCipheriv, createDecipheriv } = require('crypto');
@@ -43,11 +44,18 @@ const savePhoto = async (req, res) => {
         const user = req.user.id;
         const albumId = req.body.albumId;
 
-        //TODO: Check wether person can access album
+        if (typeof albumId !== 'string' || !Validator.isUUID(albumId, 4)) {
+            return res.status(400).json({ message: 'A valid album id is required' });
+        }
+
+        const album = await Album.findOne({ where: { id: albumId, owner: user } });
+        if (!album) {
+            return res.status(404).json({ message: 'Album not found' });
+        }
 
         const photo = await Photo.create({
             owner: user,
-            albumId: albumId,
+            albumId: album.id,
         });
 
         const base64WithoutPrefix = req.body.data.replace(/^data:image\/\w+;base64,/, '');
