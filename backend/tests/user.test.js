@@ -1,27 +1,8 @@
-// Exercise the production Express app while isolating startup and persistence.
-jest.mock('../src/config/db', () => {
-    const { Sequelize } = require('sequelize');
-    return {
-        sequelize: new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false }),
-        connectDB: jest.fn().mockResolvedValue(undefined),
-    };
-});
-jest.mock('../src/services/tcpServer', () => ({ getConnectedDevices: () => new Map() }));
-jest.mock('../src/services/photo/pinImageGenerator', () => jest.fn().mockResolvedValue(undefined));
-jest.mock('../src/schedules/updateScheduler', () => ({
-    ...jest.requireActual('../src/schedules/updateScheduler'),
-    startUpdateScheduler: jest.fn(),
-}));
-
 const request = require('supertest');
-const { Model } = require('sequelize');
 const { sequelize } = require('../src/config/db');
 const previousSecret = process.env.JWT_SECRET;
 process.env.JWT_SECRET = 'synthetic-user-tests-secret';
-// Suppress DeviceState's import-time schema sync; initialize all models below.
-const importSync = jest.spyOn(Model, 'sync').mockResolvedValue(undefined);
 const { app } = require('../src/index');
-importSync.mockRestore();
 
 beforeAll(async () => {
     await sequelize.sync({force: true});

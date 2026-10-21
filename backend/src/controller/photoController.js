@@ -1,5 +1,6 @@
 const { photoUrl } = require('../services/photo/photoUrl');
-const {dither } = require('../services/photo/dithering')
+const { prepareImage } = require('../services/photo/dithering');
+const { decodeImage } = require('../services/photo/imageInput');
 const fs = require("fs");
 const { Photo, Album } = require('../models/photo');
 const { Validator } = require('sequelize');
@@ -54,19 +55,8 @@ const savePhoto = async (req, res) => {
             return res.status(404).json({ message: 'Album not found' });
         }
 
-        const photo = await Photo.create({
-            owner: user,
-            albumId: album.id,
-        });
-
-        const base64WithoutPrefix = req.body.data.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64WithoutPrefix, 'base64');
-        console.log("[photo] received new image", {
-            userId: user,
-            albumId,
-            photoId: photo.id,
-            sizeBytes: buffer.length,
-        });
+        const { image: buffer, pixels } = await prepareImage(decodeImage(req.body.data));
+        const photo = await Photo.create({ owner: user, albumId: album.id });
         const encryptedImage = encryptBuffer(buffer);
     
         const filePath = path.join(__dirname, '..', '..', 'photos', `${photo.id}`);
@@ -77,8 +67,7 @@ const savePhoto = async (req, res) => {
         });
         fs.writeFileSync(filePath + ".png", encryptedImage);
 
-        const ditheredBytes = await dither(buffer);
-        const encodedBytes = encryptBuffer(ditheredBytes);
+        const encodedBytes = encryptBuffer(pixels);
         fs.writeFileSync(filePath + ".data", encodedBytes);
 
         res.status(200).json({
@@ -87,7 +76,7 @@ const savePhoto = async (req, res) => {
         });
     } catch (e) {
         console.warn(e);
-        res.status(500).send("Error processing image");
+        res.status(e.status || 500).send(e.status ? e.message : "Error processing image");
     }
 }
 
@@ -146,6 +135,7 @@ const getAlbums = async (req, res) => {
             }
         });
 
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
         const albumsWithPhotos = await Promise.all(
             albums.map(async (album) => {
                 const photos = await Photo.findAll({

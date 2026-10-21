@@ -10,6 +10,7 @@ try {
     for (const file of ['package.json', 'package-lock.json']) {
         fs.copyFileSync(path.join(source, file), path.join(directory, file));
     }
+    fs.copyFileSync(path.join(__dirname, 'check-image-runtime.js'), path.join(directory, 'check-image-runtime.js'));
     const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'package.json')));
     assert(manifest.dependencies.bcryptjs);
     assert(manifest.dependencies.uuid);
@@ -22,6 +23,7 @@ try {
             assert(require.resolve(name).startsWith(path.join(process.cwd(), 'node_modules') + path.sep));
         }
         assert.throws(() => require.resolve('jest'));
+        require('./check-image-runtime.js');
         const bcrypt = require('bcryptjs');
         const { v4, validate, version } = require('uuid');
         const hash = bcrypt.hashSync('synthetic-runtime-password', 4);

@@ -175,7 +175,7 @@ const getNextUpdateLabel = async (deviceId) => {
 
 const startUpdateScheduler = (tcpServer) => {
   const { pushNextPhotoToDevice } = require('../services/device/imageUpdateManager');
-  setInterval(async () => {
+  const tick = async () => {
     const devices = tcpServer.getConnectedDevices();
     for (const [uuid] of devices.entries()) {
       const state = await ensureState(uuid);
@@ -228,7 +228,16 @@ const startUpdateScheduler = (tcpServer) => {
         await planNextUpdate(state);
       }
     }
+  };
+  let running = null;
+  const timer = setInterval(() => {
+    if (running) return;
+    running = tick().catch(error => console.error('[scheduler]', error)).finally(() => { running = null; });
   }, 60 * 1000);
+  return async () => {
+    clearInterval(timer);
+    if (running) await running;
+  };
 };
 
 const getOrCreateDeviceState = ensureState;

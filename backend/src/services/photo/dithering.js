@@ -1,4 +1,5 @@
 const sharp = require("sharp");
+const { normalizeImage, withImageCapacity } = require("./imageInput");
 
 const palette = ["#03162b", "#F2E9D8", "#2E9455", "#2B528C", "#B34040", "#9AA432", "#D95C32", "#EDD4A6"];
 const hexToRGB = (hex) => hex.match(/\w\w/g).map((x) => parseInt(x, 16));
@@ -7,22 +8,10 @@ const rgbToHex = (r, g, b) => `#${((1 << 24) | (r << 16) | (g << 8) | b).toStrin
 const DISPLAY_WIDTH = 600;
 const DISPLAY_HEIGHT = 448;
 
-const dither = async (buffer) => {
-    // Rotate portrait images so the byte layout always matches the display's landscape scan order.
-    const baseImage = sharp(buffer).removeAlpha();
-    const metadata = await baseImage.metadata();
-    const shouldRotateToLandscape = (metadata?.width || 0) > 0 && (metadata?.height || 0) > metadata.width;
-
-    const { data, info } = await (shouldRotateToLandscape ? baseImage.rotate(90) : baseImage)
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-
+const convertPixels = async (buffer) => {
+    const { data, info } = await sharp(buffer).toColourspace('srgb').removeAlpha().raw().toBuffer({ resolveWithObject: true });
     const width = info.width;
     const height = info.height;
-
-    if (width !== DISPLAY_WIDTH || height !== DISPLAY_HEIGHT) {
-        console.warn(`[dither] Unexpected image dimensions ${width}x${height}; expected ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}`);
-    }
     const channels = info.channels;
 
     const pixels = new Uint8ClampedArray(data);
@@ -118,4 +107,9 @@ const distributeError = (pixels, x, y, error, factor, width) => {
     pixels[index + 2] += error[2] * factor;
 };
 
-module.exports = { dither }
+const prepareImage = buffer => withImageCapacity(async () => {
+    const image = await normalizeImage(buffer);
+    return { image, pixels: await convertPixels(image) };
+});
+const dither = async buffer => (await prepareImage(buffer)).pixels;
+module.exports = { dither, prepareImage };

@@ -6,7 +6,7 @@ const sequelize = process.env.NODE_ENV !== 'test' ? (new Sequelize(
     process.env.POSTGRES_USER,
     process.env.POSTGRES_PASSWORD,
     {
-        host: 'db',
+        host: process.env.POSTGRES_HOST || 'db',
         dialect: 'postgres',
         logging: false
     })) : new Sequelize({ // Use sqlite for local testing
@@ -15,20 +15,9 @@ const sequelize = process.env.NODE_ENV !== 'test' ? (new Sequelize(
         logging: false
     });
 
-sequelize.sync({ force: false });
-
 const connectDB = async () => {
-    try {
-        await sequelize.authenticate();
+    await sequelize.authenticate();
+    await sequelize.sync();
+};
 
-        if (process.env.NODE_ENV === 'test') {
-            console.log('Running in test environment');
-        }
-        console.log('DB Connected');
-    } catch (error) {
-        console.error('Unable to connect to DB:', error);
-        process.exit(1);
-    }
-}
-
-module.exports = { sequelize, connectDB }
+module.exports = { sequelize, connectDB };

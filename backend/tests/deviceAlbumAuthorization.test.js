@@ -15,21 +15,16 @@ jest.mock('../src/services/tcpServer', () => ({
   getConnectedDevices: jest.fn(() => new Map()),
 }));
 
-const { Model } = require('sequelize');
 const { createCipheriv } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { sequelize } = require('../src/config/db');
 
-// DeviceState currently syncs on import. Suppress only that startup side effect;
-// schema creation below runs normally once all model associations are loaded.
-const importSync = jest.spyOn(Model, 'sync').mockResolvedValue(undefined);
 const User = require('../src/models/user');
 const Device = require('../src/models/device');
 const { Album, Photo } = require('../src/models/photo');
 const { UserDeviceRole } = require('../src/models/userDeviceRole');
 const { DeviceState } = require('../src/models/deviceState');
-importSync.mockRestore();
 
 const previousKey = process.env.PHOTO_ENC_KEY;
 const testKey = Buffer.alloc(32, 7);
@@ -327,3 +322,16 @@ test('current frame photos use relative URLs even with untrusted host headers', 
     expect(JSON.stringify(res.body)).not.toContain('attacker.test');
 });
 
+test('frame preview uses the authorized photo delivery path', async () => {
+    const tcp = require('../src/services/tcpServer');
+    const { triggerFramePreview } = require('../src/controller/deviceController');
+    const client = simulatedFrame();
+    tcp.getConnectedDevices.mockReturnValueOnce(new Map([[frame.uuid, client]]));
+    const res = response();
+    await triggerFramePreview({}, res);
+    expect(res.statusCode).toBe(200);
+    expect(Buffer.concat(client.sent.slice(1))).toEqual(aliceBytes);
+    const missing = response();
+    await triggerFramePreview({}, missing);
+    expect(missing.statusCode).toBe(404);
+});
