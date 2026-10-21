@@ -6,14 +6,11 @@ jest.mock('../src/services/tcpServer', () => ({ getConnectedDevices: jest.fn() }
 jest.mock('../src/services/photo/dithering', () => ({ dither: jest.fn(async value => value) }));
 jest.mock('../src/services/photo/pinImageGenerator', () => jest.fn(async pin => Buffer.from(pin)));
 jest.mock('../src/services/photo/imageSender', () => ({ sendBuffer: jest.fn() }));
-const { Model } = require('sequelize');
-const sync = jest.spyOn(Model, 'sync').mockResolvedValue(undefined);
 const { sequelize } = require('../src/config/db');
 const User = require('../src/models/user');
 const Device = require('../src/models/device');
 const { UserDeviceRole } = require('../src/models/userDeviceRole');
 const controller = require('../src/controller/deviceController');
-sync.mockRestore();
 const tcp = require('../src/services/tcpServer');
 const generate = require('../src/services/photo/pinImageGenerator');
 const { sendBuffer } = require('../src/services/photo/imageSender');

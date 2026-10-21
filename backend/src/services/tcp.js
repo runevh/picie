@@ -23,14 +23,33 @@ const IDLE_WAIT_TIMEOUT_MS = 60_000;    // cap how long we wait for devices to r
 class TcpServer extends EventEmitter {
     constructor(port) {
         super();
+        this.port = port;
+        this.sockets = new Set();
         this.devices = new Map();
         this.server = net.createServer(socket => this.handleConnection(socket));
-        this.server.listen(port, '0.0.0.0', () => {
-            console.log(`TCP server listening on port ${port}`);
+    }
+
+    start() {
+        return new Promise((resolve, reject) => {
+            this.server.once('error', reject);
+            this.server.listen(this.port, '0.0.0.0', () => {
+                this.server.removeListener('error', reject);
+                resolve();
+            });
+        });
+    }
+
+    stop() {
+        for (const socket of this.sockets) socket.destroy();
+        return new Promise((resolve, reject) => {
+            if (!this.server.listening) return resolve();
+            this.server.close(error => error ? reject(error) : resolve());
         });
     }
 
   handleConnection(socket) {
+    this.sockets.add(socket);
+    socket.once('close', () => this.sockets.delete(socket));
     console.log('New client connected:', socket.remoteAddress);
     new TcpClient(socket, this.devices);
   }

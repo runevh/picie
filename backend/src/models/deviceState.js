@@ -58,9 +58,4 @@ const DeviceState = sequelize.define('DeviceState', {
 Device.hasOne(DeviceState, { foreignKey: 'deviceId' });
 DeviceState.belongsTo(Device, { foreignKey: 'deviceId' });
 
-// Ensure the table exists even though sequelize.sync() is called before models load in this codebase.
-DeviceState.sync({ alter: false }).catch((err) => {
-  console.error('Failed to sync DeviceState model', err);
-});
-
 module.exports = { DeviceState, DEFAULT_INTERVAL_MINUTES };
