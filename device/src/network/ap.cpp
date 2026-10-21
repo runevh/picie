@@ -1,4 +1,5 @@
 #include <network/ap.h>
+#include <network/wifi_scan.h>
 #include <page_html.h>
 #include <storage/storage.h>
 
@@ -15,18 +16,13 @@ void showPage() {
 }
 
 void searchForWifi() {
-    int numNetworks = WiFi.scanNetworks();
-    String result = "[";
-
-    for (int i = 0; i < numNetworks; i++) {
-      String networkSsid = WiFi.SSID(i);
-      result += "{\"SSID\": \"" + networkSsid + "\", \"SignalStrength\": " + WiFi.RSSI(i) + "}";
-      if (i < numNetworks - 1) {
-        result += ",";
-      }
+    JsonDocument networks = scanWifi(WiFi);
+    if (networks.overflowed()) {
+        webServer.send(503, "application/json", "{\"error\":\"Wi-Fi scan unavailable\"}");
+        return;
     }
-
-    result += "]";
+    String result;
+    serializeJson(networks, result);
 
     webServer.send(200, "application/json", result);
 }

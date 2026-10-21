@@ -346,7 +346,7 @@ export function FramesPage() {
           meta={
             <Group gap="sm" wrap="wrap">
               <Badge variant="light" color="blue">
-                {frames.length} frames
+                {frames.length} {frames.length === 1 ? "frame" : "frames"}
               </Badge>
               <Badge variant="light" color="teal">
                 {onlineCount} online

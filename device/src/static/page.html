@@ -218,9 +218,30 @@
         el.classList.remove("hidden");
         el.classList.add("show");
 
-        document.getElementById("ssid-title").innerHTML = ssid;
+        document.getElementById("ssid-title").textContent = ssid;
         document.getElementById("ssid-input").value = ssid;
     }
+
+    document.getElementById("wifiForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const button = event.target.querySelector('button[type="submit"]');
+        button.disabled = true;
+        try {
+            // URLSearchParams preserves SSID newlines instead of normalizing them as a form does.
+            const response = await fetch('/setWifiCredentials', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    ssid: document.getElementById("ssid-input").value,
+                    password: document.getElementById("password-input").value,
+                }),
+            });
+            if (!response.ok) throw new Error('Connection failed');
+            button.textContent = 'Settings sent. Reconnect to your Wi-Fi.';
+        } catch {
+            button.disabled = false;
+            button.textContent = 'Could not send settings. Try again.';
+        }
+    });
 
     function closeOverlay() {
         const el = document.getElementById("overlay");
