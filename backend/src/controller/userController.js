@@ -3,6 +3,16 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 
+const publicUser = (user) => ({
+    username: user.username,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    ...(user.admin ? { admin: true } : {}),
+});
+
 const isValidUserInfo = (username, firstName, lastName, email) => {
 
     const usernameRegex = /^(?=(.*[a-z]){3,})[a-z0-9_.]{3,16}$/; // a-z, A-Z, _, . with at least 3 letters
@@ -34,7 +44,10 @@ const register = async (req, res) => {
         return res.status(400).json({ message: 'Userinfo is invalid' });
     }
 
-    // Check if password is correct
+    if (typeof password !== 'string' || bcrypt.truncates(password) ||
+        [...password].length < 6 || !password.trim()) {
+        return res.status(400).json({ message: 'Password must contain at least 6 characters and fit within 72 UTF-8 bytes' });
+    }
 
     try {
         const existing = await User.findOne({
@@ -70,7 +83,7 @@ const register = async (req, res) => {
         });
 
         res.status(200).json({
-            user: user,
+            user: publicUser(user),
         });
     } catch (error) {
         console.error(error);
@@ -80,6 +93,9 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
     const { username, password, } = req.body;
+    if (typeof password !== 'string' || !password || bcrypt.truncates(password)) {
+        return res.status(400).json({ message: 'Incorrect password or username / email.' });
+    }
 
     try {
         // Check if user data already exists
@@ -112,18 +128,10 @@ const login = async (req, res) => {
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
-        const userData = user.toJSON();
-        delete userData.id;
-        delete userData.password;
-
-        if (!user.admin) {
-            delete userData.admin
-        }
-
         res.json({
             success: true,
             message: 'Login successful',
-            user: userData,
+            user: publicUser(user),
         });
 
     } catch (error) {
@@ -140,12 +148,7 @@ const fetchUser = async (req, res) => {
 
         if (!user) return res.status(401).json({ message: 'Unauthorized' });
 
-        const userData = user.toJSON();
-        if (!user.admin) {
-            delete userData.admin
-        }
-
-        res.json({ data: userData });
+        res.json({ data: publicUser(user) });
     } catch (error) {
         return res.status(401).json({ success: false, message: 'Invalid token' });
     }
