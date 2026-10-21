@@ -173,3 +173,10 @@ The server endpoint is configured in [`app_config.cpp`](device/src/app/app_confi
 Picie is an evolving personal project. Automated tests cover browser, backend, and simulated device behavior; they do not prove that a physical display refreshed or that a firmware installation succeeded on hardware.
 
 Firmware installation confirmation and the reboot command remain open work. Recent device security and delivery changes also need hardware verification. See the [issue tracker](https://github.com/runevh/picie/issues) for current progress.
+
+## License
+
+Picie's original code is licensed under the [MIT License](LICENSE).
+Third-party code and dependencies retain their own licenses and copyright
+notices, including the Waveshare display assets. The sample photo's source and
+public-domain credit are listed above.

@@ -10,7 +10,7 @@
     "admin:promote": "node scripts/promote-admin.js"
   },
   "author": "Rune Van Huffel",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",
     "bcryptjs": "^3.0.3",
