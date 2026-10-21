@@ -20,8 +20,8 @@ def docker(*args):
 class DockerImageTest(unittest.TestCase):
     def test_context_layers_and_runtime(self):
         name = 'picie-test-' + uuid.uuid4().hex[:12]
-        containers = [name + '-app', name + '-db']
-        images = [name + ':context', name + ':app']
+        containers = [name + '-app', name + '-db', name + '-dev']
+        images = [name + ':context', name + ':app', name + ':dev']
         with tempfile.TemporaryDirectory() as directory:
             context = Path(directory) / 'context'
             context.mkdir()
@@ -47,7 +47,7 @@ class DockerImageTest(unittest.TestCase):
             try:
                 docker('build', '-q', '-f', str(probe), '-t', images[0], str(context))
                 docker('build', '-q', '-t', images[1], str(context))
-                for index, image in enumerate(images):
+                for index, image in enumerate(images[:2]):
                     archive = Path(directory) / f'image-{index}.tar'
                     docker('save', '-o', str(archive), image)
                     with tarfile.open(archive) as saved:
@@ -96,12 +96,48 @@ class DockerImageTest(unittest.TestCase):
                     time.sleep(1)
                 else:
                     self.fail('Backend did not become ready: ' + docker('logs', containers[0]))
+                docker('exec', containers[0], 'node', 'scripts/check-image-runtime.js')
                 docker('exec', containers[0], 'node', '-e', check)
                 self.assertEqual(docker('exec', containers[0], 'cat', '/app/photos/runtime-test'), 'runtime storage')
+
+                # Exercise the real development command with an empty dependency volume.
+                shutil.copyfile(ROOT / 'backend/docker-compose.dev.yml', context / 'compose.yml')
+                (context / '.env').write_text('POSTGRES_NAME=picie\nPOSTGRES_USER=picie\nPOSTGRES_PASSWORD=synthetic-db-password\n')
+                config = json.loads(docker('compose', '--env-file', str(context / '.env'), '-f', str(context / 'compose.yml'), 'config', '--format', 'json'))
+                app_config = config['services']['app']
+                self.assertTrue(any(v['type'] == 'volume' and v['target'] == '/app/node_modules' for v in app_config['volumes']))
+                shutil.rmtree(context / 'node_modules')
+                docker('build', '-q', '--target', 'development', '-t', images[2], str(context))
+                docker('volume', 'create', name + '-deps')
+                docker('run', '-d', '--name', containers[2], '--network', name,
+                       '-v', str(context) + ':/app', '--mount', 'type=volume,src=' + name + '-deps,dst=/app/node_modules,volume-nocopy',
+                       '-e', 'NODE_ENV=development', '-e', 'POSTGRES_NAME=picie',
+                       '-e', 'POSTGRES_USER=picie', '-e', 'POSTGRES_PASSWORD=synthetic-db-password',
+                       '-e', 'JWT_SECRET=synthetic-jwt-secret', images[2], *app_config['command'])
+
+                def wait_for(expression):
+                    for _ in range(120):
+                        if subprocess.call(['docker', 'exec', containers[2], 'node', '-e', expression],
+                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                            return
+                        time.sleep(1)
+                    self.fail('Development container failed: ' + docker('logs', containers[2]))
+
+                wait_for(ready)
+                self.assertFalse((context / 'node_modules/package.json').exists())
+                application = context / 'src/index.js'
+                application.write_text(application.read_text() + "\napp.get('/reload-check', (_req, res) => res.send('reloaded'));\n")
+                wait_for("fetch('http://127.0.0.1:7734/reload-check').then(async r=>process.exit(await r.text()==='reloaded'?0:1)).catch(()=>process.exit(1))")
+                docker('stop', containers[2])
+                # A stale dependency volume must be refreshed on the next start.
+                docker('run', '--rm', '-v', name + '-deps:/deps', images[2], 'rm', '-rf', '/deps/bcryptjs')
+                docker('start', containers[2])
+                wait_for(ready)
+                docker('exec', containers[2], 'node', '-e', "require('bcryptjs'); require('nodemon')")
             finally:
                 for container in containers:
                     subprocess.run(['docker', 'rm', '-f', container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                for command in [('network', 'rm', name), ('volume', 'rm', name), ('image', 'rm', *images)]:
+                for command in [('network', 'rm', name), ('volume', 'rm', name), ('volume', 'rm', name + '-deps'), ('image', 'rm', *images)]:
                     subprocess.run(['docker', *command], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

@@ -7,7 +7,7 @@ jest.mock('../src/config/db', () => {
   const { Sequelize } = require('sequelize');
   return { sequelize: new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false }) };
 });
-jest.mock('../src/services/photo/dithering', () => ({ dither: jest.fn() }));
+jest.mock('../src/services/photo/dithering', () => ({ prepareImage: jest.fn() }));
 
 const fs = require('fs');
 const os = require('os');
@@ -16,7 +16,7 @@ const { createDecipheriv } = require('crypto');
 const { sequelize } = require('../src/config/db');
 const User = require('../src/models/user');
 const { Album, Photo } = require('../src/models/photo');
-const { dither } = require('../src/services/photo/dithering');
+const { prepareImage } = require('../src/services/photo/dithering');
 
 const previousKey = process.env.PHOTO_ENC_KEY;
 const key = Buffer.alloc(32, 9);
@@ -72,7 +72,7 @@ beforeEach(async () => {
     if (path.dirname(filename) !== photoDirectory) throw new Error('Unexpected file destination');
     originalWrite(path.join(directory, path.basename(filename)), data);
   });
-  dither.mockReset().mockResolvedValue(pixels);
+  prepareImage.mockReset().mockResolvedValue({ image, pixels });
 });
 
 afterEach(() => {
@@ -93,7 +93,7 @@ describe('photo upload authorization', () => {
     expect(res.statusCode).toBe(400);
     expect(await Photo.count()).toBe(0);
     expect(writeFile).not.toHaveBeenCalled();
-    expect(dither).not.toHaveBeenCalled();
+    expect(prepareImage).not.toHaveBeenCalled();
   });
 
   test('returns the same response for missing and inaccessible albums', async () => {
@@ -104,7 +104,7 @@ describe('photo upload authorization', () => {
     expect(foreign.body).toEqual(missing.body);
     expect(await Photo.count()).toBe(0);
     expect(writeFile).not.toHaveBeenCalled();
-    expect(dither).not.toHaveBeenCalled();
+    expect(prepareImage).not.toHaveBeenCalled();
   });
 
   test.each([0, 1])('rejects user %i uploading to another account’s album', async index => {
@@ -118,7 +118,7 @@ describe('photo upload authorization', () => {
     expect(await Photo.count()).toBe(0);
     expect(writeFile).not.toHaveBeenCalled();
     expect(fs.readdirSync(directory)).toEqual([]);
-    expect(dither).not.toHaveBeenCalled();
+    expect(prepareImage).not.toHaveBeenCalled();
     expect((await Album.findAll({ order: [['id', 'ASC']] })).map(album => album.toJSON())).toEqual(before);
   });
 
@@ -144,6 +144,14 @@ describe('photo upload authorization', () => {
     expect(fs.readdirSync(directory).sort()).toEqual([`${photo.id}.data`, `${photo.id}.png`]);
     expect(decrypt(`${photo.id}.png`)).toEqual(image);
     expect(decrypt(`${photo.id}.data`)).toEqual(pixels);
-    expect(dither).toHaveBeenCalledWith(image);
+    expect(prepareImage).toHaveBeenCalledWith(image);
   });
+});
+
+ test('invalid image conversion leaves no record or files', async () => {
+    prepareImage.mockRejectedValue(Object.assign(new Error('Invalid image'), { status: 400 }));
+    const result = await upload(users[0], albums[0]);
+    expect(result.statusCode).toBe(400);
+    expect(await Photo.count()).toBe(0);
+    expect(writeFile).not.toHaveBeenCalled();
 });
