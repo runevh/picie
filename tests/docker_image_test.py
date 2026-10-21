@@ -124,8 +124,8 @@ class DockerImageTest(unittest.TestCase):
 
                 wait_for(ready)
                 self.assertFalse((context / 'node_modules/package.json').exists())
-                application = context / 'src/app.js'
-                application.write_text(application.read_text().replace('return app;', "app.get('/reload-check', (_req, res) => res.send('reloaded')); return app;"))
+                application = context / 'src/index.js'
+                application.write_text(application.read_text() + "\napp.get('/reload-check', (_req, res) => res.send('reloaded'));\n")
                 wait_for("fetch('http://127.0.0.1:7734/reload-check').then(async r=>process.exit(await r.text()==='reloaded'?0:1)).catch(()=>process.exit(1))")
                 docker('stop', containers[2])
                 # A stale dependency volume must be refreshed on the next start.
