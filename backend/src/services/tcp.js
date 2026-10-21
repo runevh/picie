@@ -19,9 +19,10 @@ const HEARTBEAT_MAX_RETRIES = 3;        // destroy after this many consecutive m
 const IDLE_WAIT_TIMEOUT_MS = 60_000;    // cap how long we wait for devices to report idle
 
 class TcpServer extends EventEmitter {
-    constructor(port) {
+    constructor(port, host = '0.0.0.0') {
         super();
         this.port = port;
+        this.host = host;
         this.sockets = new Set();
         this.devices = new Map();
         this.server = net.createServer(socket => this.handleConnection(socket));
@@ -30,7 +31,7 @@ class TcpServer extends EventEmitter {
     start() {
         return new Promise((resolve, reject) => {
             this.server.once('error', reject);
-            this.server.listen(this.port, '0.0.0.0', () => {
+            this.server.listen(this.port, this.host, () => {
                 this.server.removeListener('error', reject);
                 resolve();
             });

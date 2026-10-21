@@ -41,6 +41,7 @@ export function PhotoEditor({ album, image, close, addPhoto }: PhotoEditorProps)
   const [orientation, setOrientation] = useState<Orientation>('horizontal');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
     const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const imageIdentityRef = useRef<string | null>(null);
@@ -194,35 +195,23 @@ export function PhotoEditor({ album, image, close, addPhoto }: PhotoEditorProps)
 
   const add = async () => {
     setLoading(true);
-
-    const data = await generateImageData();
-
-        if (isDraftAlbum) {
-            addPhoto({
-                id: `local-${Date.now()}`,
-                previewData: data as string,
-            });
-      setLoading(false);
+    setUploadError(null);
+    try {
+      const data = await generateImageData() as string;
+      if (isDraftAlbum) {
+        addPhoto({ id: `local-${Date.now()}`, previewData: data });
+      } else {
+        const res = await uploadPhoto({ albumId: album.id, data });
+        if (!res.success || !res.data?.id) throw new Error('Upload failed');
+        const id = res.data.id as string;
+        addPhoto({ id, url: `${getApiBase()}photo/get/${id}.png` });
+      }
       close();
-      return;
+    } catch {
+      setUploadError('Could not upload the photo. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-        uploadPhoto({
-            albumId: album.id,
-            data: data as string
-        }).then(res => {
-            if (res.success && res.data?.id) {
-                const photoId = res.data.id as string;
-                addPhoto({
-                    id: photoId,
-                    url: `${getApiBase()}photo/get/${photoId}.png`,
-                });
-            }
-            setLoading(false);
-            close();
-        }).catch(() => {
-            setLoading(false);
-    });
   };
 
   const generateImageData = () => {
@@ -337,6 +326,7 @@ export function PhotoEditor({ album, image, close, addPhoto }: PhotoEditorProps)
 
   const controls = (
     <>
+      {uploadError && <Text role="alert" c="red">{uploadError}</Text>}
       <Stack gap={2} align="center">
         <Text size="sm" c="dimmed" ta="center">
                     Drag inside the frame to reposition.

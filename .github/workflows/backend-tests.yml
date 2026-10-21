@@ -72,6 +72,37 @@ jobs:
             frontend/test-results/
           retention-days: 14
 
+  e2e-tests:
+    name: End-to-end journeys
+    runs-on: ubuntu-24.04
+    env:
+      E2E_PG_BIN: /usr/lib/postgresql/16/bin
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-16
+      - run: npm ci --prefix backend
+      - run: npm ci --prefix frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e --prefix frontend
+      - name: Upload journey reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            frontend/e2e-report/
+            frontend/e2e-results/
+          retention-days: 14
+
   firmware-tests:
     name: Firmware tests and build
     runs-on: ubuntu-latest
@@ -90,13 +121,14 @@ jobs:
   report:
     name: Test summary
     if: always()
-    needs: [tests, browser-tests, firmware-tests]
+    needs: [tests, browser-tests, e2e-tests, firmware-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Write combined report
         env:
           BACKEND: ${{ needs.tests.result }}
           BROWSER: ${{ needs.browser-tests.result }}
+          E2E: ${{ needs.e2e-tests.result }}
           FIRMWARE: ${{ needs.firmware-tests.result }}
         run: |
-          printf '## Test results\n\n| Check | Result |\n|---|---|\n| Backend | %s |\n| Browser | %s |\n| Firmware tests and build | %s |\n' "$BACKEND" "$BROWSER" "$FIRMWARE" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Test results\n\n| Check | Result |\n|---|---|\n| Backend | %s |\n| Browser | %s |\n| End-to-end | %s |\n| Firmware tests and build | %s |\n' "$BACKEND" "$BROWSER" "$E2E" "$FIRMWARE" >> "$GITHUB_STEP_SUMMARY"

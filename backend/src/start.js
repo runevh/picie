@@ -1,6 +1,6 @@
 const http = require('http');
 
-async function start({ app, database, initialize, tcp, schedule, port = process.env.PORT || 7734 }) {
+async function start({ app, database, initialize, tcp, schedule, port = process.env.PORT || 7734, host }) {
     const server = http.createServer(app);
     let stopScheduler;
     let stopped = false;
@@ -21,7 +21,7 @@ async function start({ app, database, initialize, tcp, schedule, port = process.
         await tcp.start();
         await new Promise((resolve, reject) => {
             server.once('error', reject);
-            server.listen(port, () => {
+            server.listen(port, host, () => {
                 server.removeListener('error', reject);
                 resolve();
             });
