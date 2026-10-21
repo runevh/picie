@@ -26,6 +26,7 @@ async function sendFirmware(client, firmwarePath, opts = {}) {
 
   const data = await fs.readFile(firmwarePath);
   const totalSize = data.length;
+  if (!totalSize) throw new Error('Empty firmware payload');
 
   const describeStatus = () => ({
     status: client.status || 'unknown',
@@ -72,22 +73,39 @@ async function sendFirmware(client, firmwarePath, opts = {}) {
     const header = Buffer.alloc(5);
     header[0] = 0x30;
     header.writeUInt32LE(totalSize, 1);
-    client.send(header);
+    const requestChunk = () => {
+      const response = client.waitForResponse(0x31, chunkTimeoutMs);
+      response.catch(() => {}); // Disconnect may reject while send is still running.
+      return response;
+    };
+    try {
+      let response = requestChunk();
+      client.send(header);
 
-    let offset = 0;
-    while (offset < totalSize) {
-      const request = await client.waitForResponse(0x31, chunkTimeoutMs);
-      if (!request || request.length < 4) {
-        throw new Error('Malformed chunk request from device');
+      let offset = 0;
+      while (offset < totalSize) {
+        const request = await response;
+        if (!Buffer.isBuffer(request) || request.length !== 4) {
+          throw new Error('Malformed chunk request from device');
+        }
+        const requestedSize = request.readUInt32LE(0);
+        if (!requestedSize || requestedSize > totalSize - offset) {
+          throw new Error('Invalid firmware chunk size');
+        }
+        const end = offset + requestedSize;
+        // Register before writing so an immediate device reply cannot be lost.
+        if (end < totalSize) response = requestChunk();
+        client.send(data.subarray(offset, end));
+        if (client.isClosed?.()) throw new Error('Device disconnected');
+        offset = end;
       }
-      const requestedSize = request.readUInt32LE(0);
-      if (requestedSize === 0) break;
-      const slice = data.subarray(offset, offset + requestedSize);
-      client.send(slice);
-      offset += slice.length;
-    }
 
-    return { bytesSent: offset, totalSize };
+      return { bytesSent: offset, totalSize };
+    } catch (error) {
+      // The device may still expect raw bytes; do not reuse this stream for commands.
+      client.closeConnection?.();
+      throw error;
+    }
   };
 
   if (typeof client.enqueueTask === 'function') {

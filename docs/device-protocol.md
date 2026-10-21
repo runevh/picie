@@ -116,7 +116,7 @@ See [pairing sessions](../backend/src/services/device/pairingSessions.js) and th
 
 The server sends `30` followed by the binary's total length. The device reports `43`, reads the length, prepares the updater, and requests chunks with `31`. The server responds with raw firmware bytes. The device calls `Update.end(true)`, reports `40`, and restarts. Failures in the firmware handler report `4F`.
 
-Unlike image delivery, the backend sender currently returns after sending bytes; it does not wait for installation confirmation or verify the version after reconnect. It also ends its loop on a zero-length request and caps oversized requests to the remaining data. A successful sender result therefore does **not** prove a complete or successful installation.
+Unlike image delivery, the backend sender currently returns after sending bytes; it does not wait for installation confirmation or verify the version after reconnect. Empty firmware and zero-length or oversized chunk requests are rejected. Transfer failures close the connection so later commands cannot be mistaken for firmware bytes. A successful sender result therefore does **not** prove a complete or successful installation.
 
 The current reboot endpoint sends a bare `30`, which the firmware treats as a firmware-transfer header and waits for a size. There is no working dedicated reboot command. Do not use that endpoint as a protocol example for rebooting.
 
