@@ -1,3 +1,4 @@
+const { getDeviceAlbum, getAlbumView } = require('../services/device/albumAccess');
 const Device = require('../models/device');
 const User = require('../models/user');
 const { UserDeviceRole } = require('../models/userDeviceRole');
@@ -129,9 +130,9 @@ const getUserDevices = async (req, res) => {
         const list = await Promise.all(devices.map(async (device) => {
             const state = device.Device ? await getOrCreateDeviceState(device.Device.uuid) : null;
             const nextUpdate = device.Device ? await getNextUpdateLabel(device.Device.uuid) : "update now";
-            const album = state?.albumId ? await Album.findByPk(state.albumId, { attributes: ['id', 'name'] }) : null;
+            const albumView = await getAlbumView(state, userId);
             const baseUrl = `${req.protocol}://${req.get('host')}`;
-            const activeImage = state?.currentPhotoId ? `${baseUrl}/api/photo/get/${state.currentPhotoId}.png` : null;
+            const activeImage = albumView.currentPhotoId ? `${baseUrl}/api/photo/get/${albumView.currentPhotoId}.png` : null;
             return {
                 ...device.toJSON(),
                 id: device.Device?.publicId,
@@ -141,10 +142,8 @@ const getUserDevices = async (req, res) => {
                 isOnline: device.Device ? connectedDevices.has(device.Device.uuid) : false,
                 updating: false,
                 nextUpdate,
-                currentPhotoId: state?.currentPhotoId || null,
-                nextPhotoId: state?.nextPhotoId || null,
+                ...albumView,
                 activeImage,
-                album,
                 scheduleMode: state?.scheduleMode || null,
                 intervalMinutes: state?.intervalMinutes || null,
                 timesOfDay: state?.timesOfDay || [],
@@ -447,8 +446,12 @@ const updateDeviceSettings = async (req, res) => {
             where: { userId, deviceId: device.uuid }
         });
 
-        if (!link) {
+        if (!link || link.role === 'READ') {
             return res.status(403).json({ success: false, message: "You do not have access to this frame" });
+        }
+
+        if (albumId && (!isUuid(albumId) || !await getDeviceAlbum(device.uuid, albumId, userId))) {
+            return res.status(403).json({ success: false, message: "You do not have access to this album" });
         }
 
         if (name && name !== device.name) {
@@ -528,6 +531,8 @@ const updateDeviceSettings = async (req, res) => {
         // Reload state so we return the freshest values (e.g., currentPhotoId after an async push).
         const responseState = await getOrCreateDeviceState(device.uuid);
 
+        const albumView = await getAlbumView(responseState, userId);
+
         res.json({
             success: true,
             data: {
@@ -535,10 +540,7 @@ const updateDeviceSettings = async (req, res) => {
                 name: device.name,
                 nextUpdate: device.uuid ? await getNextUpdateLabel(device.uuid) : "update now",
                 nextUpdateAt: responseState?.nextUpdateAt ? new Date(responseState.nextUpdateAt).toISOString() : null,
-                albumId: responseState?.albumId || null,
-                album: responseState?.albumId ? await Album.findByPk(responseState.albumId, { attributes: ['id', 'name'] }) : null,
-                currentPhotoId: responseState?.currentPhotoId || null,
-                nextPhotoId: responseState?.nextPhotoId || null,
+                ...albumView,
                 scheduleMode: responseState?.scheduleMode || null,
                 intervalMinutes: responseState?.intervalMinutes || null,
                 timesOfDay: responseState?.timesOfDay || [],
