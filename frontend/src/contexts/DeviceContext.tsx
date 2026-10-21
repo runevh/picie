@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useState } from "react";
 import { User } from "./UserContext";
 import { ResponseBody } from "../services/api";
-import { deviceService } from "../services/DeviceService";
+import { deviceService, PairingSession } from "../services/DeviceService";
 
 interface Device {
     id: string,
@@ -17,8 +17,8 @@ interface DeviceContextType {
     getAllDevices: () => Promise<ResponseBody>;
     getAllUserDevices: () => Promise<ResponseBody>;
     startPairing: (id: string) => Promise<ResponseBody>;
-    endClaimDevice: (pin: string) => Promise<ResponseBody>;
-    cancelPairing: () => Promise<ResponseBody>;
+    endClaimDevice: (pin: string, session: PairingSession) => Promise<ResponseBody>;
+    cancelPairing: (session: PairingSession) => Promise<ResponseBody>;
     getDeviceStatus: (id: string) => Promise<ResponseBody>;
     deleteDevice: (id: string) => Promise<ResponseBody>;
     unlinkDevice: (id: string) => Promise<ResponseBody>;
@@ -50,17 +50,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         return await deviceService.getAllUserDevices();
     }
 
-    const startPairing = async (id: string): Promise<ResponseBody> => {
-        return await deviceService.startPairing(id);
-    }
-
-    const endClaimDevice = async (pin: string): Promise<ResponseBody> => {
-        return await deviceService.endClaimDevice(pin);
-    }
-
-    const cancelPairing = async (): Promise<ResponseBody> => {
-        return await deviceService.cancelPairing();
-    }
+    const startPairing = deviceService.startPairing;
+    const endClaimDevice = deviceService.endClaimDevice;
+    const cancelPairing = deviceService.cancelPairing;
 
     const getDeviceStatus = async (id: string): Promise<ResponseBody> => {
         return await deviceService.getDeviceStatus(id);

@@ -24,6 +24,8 @@ import { StatusLoader } from "../../misc/StatusLoader";
 import { useDeviceContext } from "../../contexts/DeviceContext";
 import { notifications } from "@mantine/notifications";
 
+import { PairingSession } from "../../services/DeviceService";
+
 type FrameAdderProps = {
   opened: boolean;
   onClose: () => void;
@@ -52,19 +54,26 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
   const [waitingForCode, setWaitingForCode] = useState(false);
   const [pollingStatus, setPollingStatus] = useState<string | null>(null);
   const sessionRef = useRef(0);
+  const pairingRef = useRef<PairingSession | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
 
   const isMobile = useIsMobile();
   const { startPairing, endClaimDevice, cancelPairing, getDeviceStatus } = useDeviceContext();
 
+  const cancelCurrentPairing = useCallback(async () => {
+    const session = pairingRef.current;
+    pairingRef.current = null;
+    if (session) await cancelPairing(session);
+  }, [cancelPairing]);
+
   const canGoNext = () => {
     if (active === 0) {
       return /^\d{6}$/.test(deviceCode); // exactly 6 digits
     }
     if (active === 1) {
-      if (waitingForCode) return false;
-      return confirmationCode.trim().length > 0;
+      if (waitingForCode || timeLeft <= 0) return false;
+      return confirmationCode.length === 4;
     }
     // Add other step validations here if needed
     return true;
@@ -91,16 +100,17 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
   useEffect(() => {
     if (!opened) {
       resetWizard();
-      cancelPairing().catch(() => {});
+      cancelCurrentPairing().catch(() => {});
     }
-  }, [opened, cancelPairing]);
+  }, [opened, cancelCurrentPairing]);
 
   // Ensure pairing is cancelled if the component unmounts (e.g., navigation)
   useEffect(() => {
     return () => {
-      cancelPairing().catch(() => {});
+      sessionRef.current += 1;
+      cancelCurrentPairing().catch(() => {});
     };
-  }, [cancelPairing]);
+  }, [cancelCurrentPairing]);
 
   useEffect(() => {
     if (!waitingForCode || !deviceCode) return;
@@ -141,12 +151,18 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
       setLoadingContent(<>Fetching device info...</>);
 
       const res = await startPairing(deviceCode);
-      setLoading(false);
       if (sessionToken !== sessionRef.current || !opened) {
+        if (res.success) await cancelPairing(res.data.data);
         return;
       }
+      setLoading(false);
 
       if (res.success) {
+        const session: PairingSession = res.data.data;
+        pairingRef.current = session;
+        setExpiryTimestamp(session.expiresAt);
+        setTimeLeft(Math.max(0, Math.ceil((session.expiresAt - Date.now()) / 1000)));
+        setErrorBanner(null);
         setActive((current) => current + 1);
         setWaitingForCode(true);
         setLoading(true);
@@ -163,12 +179,19 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
     }
 
     if (active === 1) {
+      const session = pairingRef.current;
+      if (!session) return;
       setLoading(true);
       setLoadingContent(<>Finishing pairing...</>);
-      const res = await endClaimDevice(confirmationCode);
+      const token = sessionRef.current;
+      const res = await endClaimDevice(confirmationCode, session);
+      if (token !== sessionRef.current) return;
       setLoading(false);
 
       if (res.success) {
+        pairingRef.current = null;
+        setExpiryTimestamp(null);
+        setErrorBanner(null);
         const payload = (res.data as any)?.data || res.data;
         const id = payload?.id || payload?.uuid || null;
         setFrameId(id);
@@ -192,13 +215,6 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
     }
   }
 
-  useEffect(() => {
-    if (loading && !expiryTimestamp) {
-      const expiration = Date.now() + 60 * 15_000; // 60 seconds from now
-      setExpiryTimestamp(expiration);
-    }
-  }, [loading, expiryTimestamp]);
-
   // Update countdown every second
   useEffect(() => {
     if (!expiryTimestamp) return;
@@ -207,7 +223,12 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
       const diff = Math.max(0, Math.floor((expiryTimestamp - Date.now()) / 1000));
       setTimeLeft(diff);
 
-      if (diff === 0) clearInterval(interval);
+      if (diff === 0) {
+        clearInterval(interval);
+        setWaitingForCode(false);
+        setLoading(false);
+        setErrorBanner("Pairing expired. Try again.");
+      }
     }, 1000);
 
     return () => clearInterval(interval);
@@ -249,7 +270,7 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                     <Button
                       variant="default"
                       onClick={async () => {
-                        await cancelPairing();
+                        await cancelCurrentPairing();
                         onClose();
                       }}
                       w="50%"
@@ -286,7 +307,7 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                   <Button
                     variant="default"
                     onClick={async () => {
-                      await cancelPairing();
+                      await cancelCurrentPairing();
                       onClose();
                     }}
                     w="50%"
@@ -301,6 +322,7 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                       A pairing code should appear on your frame. Enter it below.
                     </Text>
                     <PinInput
+                      disabled={timeLeft <= 0}
                       value={confirmationCode}
                       onChange={setConfirmationCode}
                       autoFocus
@@ -311,6 +333,10 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                       gap="md"
                       radius="md"
                     />
+                    <Button variant="subtle" onClick={async () => {
+                      await cancelCurrentPairing();
+                      resetWizard();
+                    }}>Try again</Button>
                     {attemptsLeft !== null && (
                       <Text size="sm" c="dimmed">
                         {attemptsLeft} attempt{attemptsLeft === 1 ? "" : "s"} remaining
@@ -359,7 +385,7 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                 <Button
                   variant="default"
                   onClick={async () => {
-                    await cancelPairing();
+                    await cancelCurrentPairing();
                     onClose();
                   }}
                   w="50%"
