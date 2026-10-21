@@ -73,3 +73,17 @@ mv -Tf /var/www/picie/current.next /var/www/picie/current
 When changing the Caddy snippet, an administrator must install it again,
 validate the full Caddyfile, and reload Caddy. The routine workflow deliberately
 does not overwrite the shared host configuration.
+
+### Verified deployments
+
+The production GitHub environment needs `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`,
+and `VPS_HOST_FINGERPRINT`. Set the SHA256 host fingerprint using your hosting
+console or an already trusted connection (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256`).
+Do not obtain the trusted value from the workflow's network scan. Missing or
+mismatched fingerprints stop deployment before SSH authentication.
+
+The workflow deploys its exact commit SHA, even when `main` advances while it
+waits. GitHub's public host key is pinned in `github-known-hosts`; update it only
+from GitHub's published fingerprints if GitHub rotates that key. No trust-on-first-use
+step runs on the server. Tests use disposable local Git repositories and SSH keys:
+`python3 -m unittest discover -s tests -p deployment_test.py -v`.
