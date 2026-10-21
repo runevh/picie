@@ -1,4 +1,4 @@
-name: Backend authorization tests
+name: Backend tests
 
 on:
   pull_request:
@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  authorization-tests:
-    name: Backend authorization
+  tests:
+    name: Backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -28,8 +28,8 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
-      - name: Run authorization tests
-        run: npm test -- --ci --runInBand --runTestsByPath tests/deviceAlbumAuthorization.test.js tests/photoUploadAuthorization.test.js tests/adminRegistration.test.js --coverage=false --json --outputFile=test-results.json
+      - name: Run all backend tests
+        run: npm test -- --ci --runInBand --coverage=false --json --outputFile=test-results.json
       - name: Write test summary
         if: always()
         run: node scripts/test-summary.js
@@ -37,7 +37,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-authorization-results
+          name: backend-test-results
           path: backend/test-results.json
           if-no-files-found: ignore
           retention-days: 14
