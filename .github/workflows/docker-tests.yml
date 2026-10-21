@@ -1,0 +1,33 @@
+name: Docker tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-tests:
+    name: Docker isolation and startup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p docker_image_test.py -v
+
+      - name: Write Docker report
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          printf '## Docker isolation and startup\n\nResult: %s\n' "$RESULT" >> "$GITHUB_STEP_SUMMARY"
