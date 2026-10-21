@@ -1,5 +1,6 @@
 import {
   Badge,
+  UnstyledButton,
   Box,
   Button,
   Checkbox,
@@ -256,8 +257,9 @@ const stats = useMemo(
             }}
           >
             {albums.map((album) => (
-              <Box
+              <UnstyledButton
                 key={album.id}
+                aria-label={`Open album ${album.name}`}
                 style={{
                   width: 163 * scale,
                   height: 163 * scale,
@@ -266,7 +268,7 @@ const stats = useMemo(
                 onClick={() => openForEdit(album)}
               >
                 <AlbumCover album={album} size={163 * scale} />
-              </Box>
+              </UnstyledButton>
             ))}
 
             <Paper

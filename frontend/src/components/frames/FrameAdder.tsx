@@ -285,6 +285,7 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                       Enter the 6-digit code found on the back of your frame.
                     </Text>
                     <PinInput
+                      aria-label="Frame code"
                       value={deviceCode}
                       onChange={setDeviceCode}
                       autoFocus
@@ -322,6 +323,7 @@ export function FrameAdder({ opened, onClose }: FrameAdderProps) {
                       A pairing code should appear on your frame. Enter it below.
                     </Text>
                     <PinInput
+                      aria-label="Pairing code"
                       disabled={timeLeft <= 0}
                       value={confirmationCode}
                       onChange={setConfirmationCode}
