@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 const reportPath = 'test-results.json';
-let summary = '## Backend authorization tests\n\n';
+let summary = '## Backend tests\n\n';
 
 if (!fs.existsSync(reportPath)) {
   summary += 'Tests did not produce a report. Check the installation and test logs.\n';
@@ -16,7 +16,7 @@ if (!fs.existsSync(reportPath)) {
   }
 }
 
-summary += '\nScope: photo uploads, device album authorization, and photo delivery.\n';
+summary += '\nScope: all backend Jest tests.\n';
 if (process.env.GITHUB_STEP_SUMMARY) {
   fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
 } else {

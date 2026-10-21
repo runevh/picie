@@ -47,15 +47,13 @@ const register = async (req, res) => {
             return res.status(400).json({ message: 'The provided email or username is already in use.' });
         }
 
-        const existingUserCount = await User.count();
         const user = await User.create({
             username,
             email,
             password,
             firstName,
             lastName,
-            // First ever account becomes admin so there is an initial owner
-            admin: existingUserCount === 0,
+            admin: false,
         });
 
         const token = jwt.sign(
