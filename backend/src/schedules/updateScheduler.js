@@ -1,3 +1,4 @@
+const { validateTimeZone, nextTimeOfDay } = require('./timezone');
 const { getDeviceAlbum } = require('../services/device/albumAccess');
 const { DeviceState, DEFAULT_INTERVAL_MINUTES } = require('../models/deviceState');
 const { Photo } = require('../models/photo');
@@ -48,32 +49,7 @@ const computeNextRun = (state) => {
     const times = normalizeTimesOfDay(state.timesOfDay);
     state.timesOfDay = times;
     if (times.length > 0) {
-      const now = new Date();
-      const candidates = times
-        .map((t) => {
-          const [h, m] = String(t || "").split(":").map((v) => parseInt(v, 10));
-          const dt = new Date(now);
-          dt.setHours(isNaN(h) ? 0 : h, isNaN(m) ? 0 : m, 0, 0);
-          if (dt <= now) {
-            dt.setDate(dt.getDate() + 1);
-          }
-          return {
-            timeOfDay: t,
-            timestamp: dt.getTime(),
-          };
-        })
-        .filter((entry) => Boolean(entry?.timestamp))
-        .sort((a, b) => a.timestamp - b.timestamp);
-
-      const next = candidates[0];
-      console.log("[scheduler] computed next run (times mode)", {
-        deviceId: state.deviceId,
-        timesOfDay: times,
-        selectedTimeOfDay: next?.timeOfDay || null,
-        now: now.toISOString(),
-        nextUpdateAt: next ? new Date(next.timestamp).toISOString() : null,
-      });
-      return next?.timestamp || now.getTime();
+      return nextTimeOfDay(times, state.timeZone || 'UTC');
     }
     console.log("[scheduler] times mode configured without times; falling back to interval", {
       deviceId: state.deviceId,
@@ -136,7 +112,9 @@ const ensureNextPlannedPhoto = async (deviceId) => {
 };
 
 const setDeviceSchedule = async (deviceId, schedule) => {
+  if (schedule.timeZone !== undefined) validateTimeZone(schedule.timeZone);
   const state = await ensureState(deviceId);
+  if (schedule.timeZone !== undefined) state.timeZone = schedule.timeZone;
   if (schedule.mode) state.scheduleMode = schedule.mode;
 
   if (typeof schedule.intervalMinutes === "number" && Number.isFinite(schedule.intervalMinutes)) {
@@ -245,6 +223,7 @@ const startUpdateScheduler = (tcpServer) => {
 const getOrCreateDeviceState = ensureState;
 
 module.exports = {
+  computeNextRun,
   startUpdateScheduler,
   getNextUpdateLabel,
   markDeviceUpdateSent,

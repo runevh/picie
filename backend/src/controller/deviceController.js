@@ -1,3 +1,4 @@
+const { validateTimeZone } = require('../schedules/timezone');
 const { photoUrl } = require('../services/photo/photoUrl');
 const { getDeviceAlbum, getAlbumView } = require('../services/device/albumAccess');
 const Device = require('../models/device');
@@ -90,6 +91,7 @@ const getAllDevices = async (req, res) => {
                 scheduleMode: state?.scheduleMode || null,
                 intervalMinutes: state?.intervalMinutes || null,
                 timesOfDay: state?.timesOfDay || [],
+                timeZone: state?.timeZone || 'UTC',
                 activeImage,
                 nextUpdateAt: state?.nextUpdateAt ? new Date(state.nextUpdateAt).toISOString() : null,
               };
@@ -148,6 +150,7 @@ const getUserDevices = async (req, res) => {
                 scheduleMode: state?.scheduleMode || null,
                 intervalMinutes: state?.intervalMinutes || null,
                 timesOfDay: state?.timesOfDay || [],
+                timeZone: state?.timeZone || 'UTC',
                 nextUpdateAt: state?.nextUpdateAt ? new Date(state.nextUpdateAt).toISOString() : null,
             };
         }));
@@ -378,6 +381,8 @@ const updateDeviceSettings = async (req, res) => {
             return res.status(403).json({ success: false, message: "You do not have access to this album" });
         }
 
+        if (schedule?.timeZone !== undefined) validateTimeZone(schedule.timeZone);
+
         if (name && name !== device.name) {
             await device.update({ name });
         }
@@ -406,6 +411,7 @@ const updateDeviceSettings = async (req, res) => {
                 mode: schedule.mode,
                 intervalMinutes: schedule.intervalMinutes,
                 timesOfDay: Array.isArray(schedule.timesOfDay) ? schedule.timesOfDay : [],
+                timeZone: schedule.timeZone,
             });
         }
 
@@ -468,11 +474,12 @@ const updateDeviceSettings = async (req, res) => {
                 scheduleMode: responseState?.scheduleMode || null,
                 intervalMinutes: responseState?.intervalMinutes || null,
                 timesOfDay: responseState?.timesOfDay || [],
+                timeZone: responseState?.timeZone || 'UTC',
             },
         });
     } catch (err) {
         console.error("Error updating device settings", err);
-        res.status(500).json({ success: false, message: "Failed to update device settings" });
+        res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Failed to update device settings" });
     }
 };
 

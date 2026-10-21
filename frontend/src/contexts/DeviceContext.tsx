@@ -28,7 +28,7 @@ interface DeviceContextType {
     updateDevice: (data: {
       id: string;
       name?: string;
-      schedule?: { mode?: string; intervalMinutes?: number; timesOfDay?: string[] };
+      schedule?: { mode?: string; intervalMinutes?: number; timesOfDay?: string[]; timeZone?: string };
       albumId?: string | null;
     }) => Promise<ResponseBody>;
 }
@@ -81,7 +81,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     const updateDevice = async (data: {
       id: string;
       name?: string;
-      schedule?: { mode?: string; intervalMinutes?: number; timesOfDay?: string[] };
+      schedule?: { mode?: string; intervalMinutes?: number; timesOfDay?: string[]; timeZone?: string };
       albumId?: string | null;
     }): Promise<ResponseBody> => {
       return await deviceService.updateDevice(data);
