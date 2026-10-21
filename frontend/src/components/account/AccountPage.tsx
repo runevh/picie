@@ -303,9 +303,19 @@ export function AccountPage() {
               loading={loggingOut}
               onClick={async () => {
                 setLoggingOut(true);
-                await logout();
+                const result = await logout();
                 setLoggingOut(false);
-                closeLogout();
+                if (result.success) {
+                  notifications.hide("logout-error");
+                  closeLogout();
+                } else {
+                  notifications.show({
+                    id: 'logout-error',
+                    title: 'Could not log out',
+                    message: 'You are still signed in. Please try again.',
+                    color: 'red',
+                  });
+                }
               }}
             >
               Log out
