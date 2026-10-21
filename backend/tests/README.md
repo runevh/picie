@@ -22,3 +22,9 @@ npm test --prefix backend -- --runInBand photoController
 `pairingImage.test.js` uses real Sharp rendering and dithering to check the PIN's
 layout, leading zeros, and packed display data. It checks pixel properties rather
 than exact image snapshots so normal font-rendering differences are allowed.
+
+`scripts.test.js` checks runtime version validation, GitHub test summaries, and
+temporary-install cleanup. It stubs subprocesses so Jest does not install packages;
+CI still runs the actual clean production-install check separately.
+`adminScript.test.js` checks administrator command arguments, bound SQL parameters,
+and connection cleanup using a fake database. It never loads local `.env` files.

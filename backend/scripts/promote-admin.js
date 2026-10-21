@@ -39,4 +39,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { promoteAdmin };
+module.exports = { promoteAdmin, main };
