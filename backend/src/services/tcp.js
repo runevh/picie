@@ -54,6 +54,7 @@ class TcpClient {
     this.statusWaiters = [];
     this.pendingTask = null;
     this.processingTask = false;
+    this.activeTask = null;
     this.heartbeatTimer = null;
     this.missedHeartbeats = 0;
 
@@ -77,10 +78,18 @@ class TcpClient {
   }
 
   closeConnection() {
+    if (this.closed) return;
     this.closed = true;
+    const error = new Error('Device disconnected');
+    for (const handler of this.pendingResponses.values()) handler.cancel?.(error);
+    for (const waiter of [...this.statusWaiters]) waiter.cancel(error);
+    this.pendingTask?.reject(error);
+    this.pendingTask = null;
+    this.activeTask?.reject(error);
     this.authenticated = false;
     this.buffer = Buffer.alloc(0);
     clearTimeout(this.authTimeout);
+    clearTimeout(this.rebootTimer);
     this.stopHeartbeat();
     if (this.uuid && this.devices.get(this.uuid) === this) {
       this.devices.delete(this.uuid);
@@ -209,7 +218,8 @@ class TcpClient {
       } else if (this.status === 'rebooting') {
         console.log(`Device ${this.uuid || 'unknown'} reported rebooting; destroying socket to allow reconnect`);
         // Give a tiny grace period to flush logs then close.
-        setTimeout(() => this.socket.destroy(), 50);
+        clearTimeout(this.rebootTimer);
+        this.rebootTimer = setTimeout(() => this.closeConnection(), 50);
       }
       return;
     }
@@ -224,19 +234,17 @@ class TcpClient {
   }
 
   waitUntilIdle(timeoutMs = IDLE_WAIT_TIMEOUT_MS) {
+    if (this.isClosed()) return Promise.reject(new Error('Device disconnected'));
     if (this.status === 'idle' || this.status === 'error') return Promise.resolve();
 
     return new Promise((resolve, reject) => {
-      const wrapped = () => {
+      const cleanup = () => {
         clearTimeout(timer);
-        resolve();
+        this.statusWaiters = this.statusWaiters.filter(fn => fn !== wrapped);
       };
-
-      const timer = setTimeout(() => {
-        // Remove the waiter so later idle events don't resolve a timed out promise.
-        this.statusWaiters = this.statusWaiters.filter((fn) => fn !== wrapped);
-        reject(new Error(`Timed out waiting for device ${this.uuid || 'unknown'} to become idle`));
-      }, timeoutMs);
+      const wrapped = () => { cleanup(); resolve(); };
+      wrapped.cancel = error => { cleanup(); reject(error); };
+      const timer = setTimeout(() => wrapped.cancel(new Error('Timed out waiting for device to become idle')), timeoutMs);
 
       this.statusWaiters.push(wrapped);
     });
@@ -261,32 +269,19 @@ class TcpClient {
     }
   }
 
-  waitForResponse(code, timeoutMs = 10_000) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.pendingResponses.delete(code);
-        reject(new Error('response_timeout'));
-      }, timeoutMs);
-
-      this.pendingResponses.set(code, () => {
-        clearTimeout(timeout);
-        this.pendingResponses.delete(code);
-        resolve();
-      });
-    });
-  }
-
   async sendHeartbeat() {
     if (!this.authenticated) return;
     try {
       // 0x01 = ping, expect 0x02 = pong
       this.socket.write(Buffer.from([0x01]));
       await this.waitForResponse(0x02, 10_000);
+      if (this.isClosed()) return;
       this.missedHeartbeats = 0;
       // Schedule the next regular heartbeat after a healthy pong.
       this.stopHeartbeat();
       this.heartbeatTimer = setTimeout(() => this.sendHeartbeat(), HEARTBEAT_BASE_MS);
     } catch (err) {
+      if (this.isClosed()) return;
       this.missedHeartbeats += 1;
       if (this.missedHeartbeats >= HEARTBEAT_MAX_RETRIES) {
         console.warn(`Heartbeat missed ${this.missedHeartbeats} times for device ${this.uuid}; destroying socket`);
@@ -299,65 +294,71 @@ class TcpClient {
     }
   }
 
-  enqueueTask(taskFn, label = 'task') {
-    // Keep only the latest queued task; override any previous pending one.
-    const promise = new Promise((resolve, reject) => {
-      this.pendingTask = { taskFn, resolve, reject, label };
+  enqueueTask(taskFn, label = 'task', timeoutMs = 120000) {
+    if (this.isClosed()) return Promise.reject(new Error('Device disconnected'));
+    this.pendingTask?.reject(new Error('Task superseded by newer work'));
+    const task = { taskFn, label, settled: false };
+    task.promise = new Promise((resolve, reject) => {
+      const finish = (callback, value) => {
+        if (task.settled) return;
+        task.settled = true;
+        clearTimeout(task.timer);
+        callback(value);
+      };
+      task.resolve = value => finish(resolve, value);
+      task.reject = error => finish(reject, error);
     });
-    console.log(`[tcp] enqueueTask device=${this.uuid || 'unknown'} label=${label}`);
-    this.processTaskQueue();
-    return promise;
+    task.timer = setTimeout(() => {
+      task.reject(new Error('Device task timed out'));
+      // An unfinished transfer must not overlap the next task.
+      this.closeConnection();
+    }, timeoutMs);
+    this.pendingTask = task;
+    void this.processTaskQueue();
+    return task.promise;
   }
 
   async processTaskQueue() {
     if (this.processingTask) return;
     this.processingTask = true;
-    console.log(`[tcp] processTaskQueue start device=${this.uuid || 'unknown'}`);
-    while (this.pendingTask) {
-      // Wait until the device reports idle before choosing which task to run.
-      try {
-        await this.waitUntilIdle();
-      } catch (err) {
-        console.warn(`[tcp] waitUntilIdle timeout before ${this.pendingTask?.label || 'task'} for device ${this.uuid || 'unknown'}`, err?.message || err);
-        // Reject the pending task so callers get a timely error instead of hanging until proxy timeout.
-        this.pendingTask?.reject(err);
-        this.pendingTask = null;
-        continue;
-      }
-
-      // If a newer task arrived while we were waiting, drop the older one so the queue size stays at 1.
-      const current = this.pendingTask;
-      this.pendingTask = null;
-
-      // Skip sending if the device already shows the target image.
-      if (current?.label?.startsWith('send-image-') && this.uuid) {
-        const targetPhotoId = current.label.substring('send-image-'.length);
+    try {
+      while (this.pendingTask && !this.isClosed()) {
         try {
-          const state = await getOrCreateDeviceState(this.uuid);
-          if (state?.currentPhotoId && String(state.currentPhotoId) === String(targetPhotoId)) {
-            console.log(`[tcp] skipping ${current.label} for device ${this.uuid}; image already active`);
-            // Still mark as sent to keep nextPhoto planning in sync.
-            await markDeviceUpdateSent(this.uuid, { currentPhotoId: targetPhotoId });
-            current.resolve(state);
-            continue;
+          await this.waitUntilIdle();
+        } catch (error) {
+          this.pendingTask?.reject(error);
+          this.pendingTask = null;
+          continue;
+        }
+        const task = this.pendingTask;
+        this.pendingTask = null;
+        if (!task || task.settled || this.isClosed()) continue;
+        this.activeTask = task;
+        const execute = async () => {
+          if (task.label.startsWith('send-image-') && this.uuid) {
+            const targetPhotoId = task.label.substring('send-image-'.length);
+            const state = await getOrCreateDeviceState(this.uuid);
+            if (task.settled || this.isClosed()) throw new Error('Device task cancelled');
+            if (state?.currentPhotoId && String(state.currentPhotoId) === targetPhotoId) {
+              await markDeviceUpdateSent(this.uuid, { currentPhotoId: targetPhotoId });
+              return state;
+            }
           }
-        } catch (err) {
-          console.warn(`[tcp] state check failed before ${current.label} for device ${this.uuid}`, err?.message || err);
+          if (task.settled || this.isClosed()) throw new Error('Device task cancelled');
+          return task.taskFn();
+        };
+        try {
+          const result = await Promise.race([execute(), task.promise]);
+          task.resolve(result);
+        } catch (error) {
+          task.reject(error);
+        } finally {
+          this.activeTask = null;
         }
       }
-
-      try {
-        // If another task arrived after clearing pendingTask, process it next loop iteration.
-        const result = await current.taskFn();
-        current.resolve(result);
-        console.log(`[tcp] task completed device=${this.uuid || 'unknown'} label=${current.label}`);
-      } catch (err) {
-        console.error(`[tcp] task "${current.label}" failed for device ${this.uuid}`, err);
-        current.reject(err);
-      }
+    } finally {
+      this.processingTask = false;
     }
-    console.log(`[tcp] processTaskQueue end device=${this.uuid || 'unknown'}`);
-    this.processingTask = false;
   }
 
   hasPendingWork() {
@@ -368,27 +369,25 @@ class TcpClient {
   }
 
   send(data) {
-    if (this.authenticated && this.socket.writable) {
+    if (!this.isClosed() && this.authenticated && this.socket.writable) {
       this.socket.write(Buffer.from(data));
     } else {
       console.warn(`Attempt to send to unauthenticated or closed socket: ${this.uuid}`);
         }
     }
 
-    async waitForResponse(code, timeout = 15000) {
+    waitForResponse(code, timeout = 15000) {
+        if (this.isClosed()) return Promise.reject(new Error('Device disconnected'));
+        if (this.pendingResponses.has(code)) return Promise.reject(new Error('Response waiter already registered'));
         return new Promise((resolve, reject) => {
-            const handler = (data) => {
+            const cleanup = () => {
                 clearTimeout(timer);
-                this.pendingResponses.delete(code);
-                resolve(data);
+                if (this.pendingResponses.get(code) === handler) this.pendingResponses.delete(code);
             };
-
+            const handler = data => { cleanup(); resolve(data); };
+            handler.cancel = error => { cleanup(); reject(error); };
+            const timer = setTimeout(() => handler.cancel(new Error('Response timeout')), timeout);
             this.pendingResponses.set(code, handler);
-
-            const timer = setTimeout(() => {
-                this.pendingResponses.delete(code);
-                reject(new Error(`Timeout waiting for response to code 0x${code.toString(16)}`));
-            }, timeout);
         });
     }
 
