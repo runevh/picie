@@ -281,7 +281,7 @@ export function AdminPage() {
     const color = frame.isOnline ? "green" : "gray";
     const label = frame.isOnline ? "Online" : "Offline";
     return (
-      <Badge color={color} variant="light">
+      <Badge color={color} variant="light" style={{ flexShrink: 0, minWidth: "max-content" }}>
         {label}
       </Badge>
     );
@@ -292,7 +292,7 @@ export function AdminPage() {
     const color = claimed ? "blue" : "gray";
     return (
       <Stack gap={2}>
-        <Badge color={color} variant="light">
+        <Badge color={color} variant="light" style={{ flexShrink: 0, minWidth: "max-content" }}>
           {claimed ? "Claimed" : "Unclaimed"}
         </Badge>
         {claimed && (
@@ -347,8 +347,9 @@ export function AdminPage() {
 
       <Paper withBorder radius="lg" p="md" pos="relative">
         <LoadingOverlay visible={loading} />
-        <ScrollArea>
-          <Table highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
+        <Text size="xs" c="dimmed">Scroll horizontally to see all frame details and actions.</Text>
+        <ScrollArea type="always" viewportProps={{ role: "region", "aria-label": "Frames table", tabIndex: 0 }}>
+          <Table miw={900} highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
