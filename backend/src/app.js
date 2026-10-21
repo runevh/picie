@@ -18,7 +18,8 @@ const createApp = () => {
 
     app.use('/api/photo/upload', express.json({ limit: '10mb' }));
     app.use(cookieParser());
-    app.use(bodyParser.json({ limit: '20mb' }));
+    app.use('/api/device/firmware', express.raw({ type: 'application/octet-stream', limit: '5mb' }));
+    app.use(bodyParser.json({ limit: '5mb' }));
 
     app.use('/api', apiRouter);
 

@@ -552,7 +552,20 @@ const uploadFirmware = async (req, res) => {
 };
 
 
+const triggerFramePreview = async (req, res) => {
+    const entry = tcpServer.getConnectedDevices().entries().next().value;
+    if (!entry) return res.status(404).json({ message: 'No connected frame' });
+    try {
+        const [deviceId, client] = entry;
+        await pushNextPhotoToDevice(deviceId, client);
+        return res.json({ success: true });
+    } catch (error) {
+        return res.status(503).json({ message: 'Frame preview failed' });
+    }
+};
+
 module.exports = {
+    triggerFramePreview,
     createDevice,
     getUserDevices,
     getAllDevices,
