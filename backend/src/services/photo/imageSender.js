@@ -1,5 +1,5 @@
+const { photoPath } = require('./paths');
 const fs = require('fs');
-const path = require('path');
 const { createDecipheriv } = require('crypto');
 
 const ALGO = 'aes-256-gcm';
@@ -27,7 +27,7 @@ const decryptBuffer = (data) => {
 
 
 async function getRawData(photoId) {
-    const filePath = path.join(__dirname, '..', '..', '..', 'photos', `${photoId}.data`);
+    const filePath = photoPath(photoId, 'data');
 
     return new Promise((resolve, reject) => {
         fs.readFile(filePath, (err, data) => {

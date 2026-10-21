@@ -21,6 +21,9 @@ const { prepareImage } = require('../src/services/photo/dithering');
 const previousKey = process.env.PHOTO_ENC_KEY;
 const key = Buffer.alloc(32, 9);
 process.env.PHOTO_ENC_KEY = key.toString('base64');
+const previousDirectory = process.env.PHOTO_STORAGE_PATH;
+const testDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'picie-upload-test-'));
+process.env.PHOTO_STORAGE_PATH = testDirectory;
 const { savePhoto } = require('../src/controller/photoController');
 const image = Buffer.from('synthetic image input');
 const pixels = Buffer.from('synthetic converted frame');
@@ -65,9 +68,10 @@ beforeEach(async () => {
     users.push(user);
     albums.push(await Album.create({ name: `${name}'s album`, owner: user.id }));
   }
-  directory = fs.mkdtempSync(path.join(os.tmpdir(), 'picie-upload-test-'));
+  directory = testDirectory;
+  fs.mkdirSync(directory, { recursive: true });
   const originalWrite = fs.writeFileSync.bind(fs);
-  const photoDirectory = path.resolve(__dirname, '../photos');
+  const photoDirectory = directory;
   writeFile = jest.spyOn(fs, 'writeFileSync').mockImplementation((filename, data) => {
     if (path.dirname(filename) !== photoDirectory) throw new Error('Unexpected file destination');
     originalWrite(path.join(directory, path.basename(filename)), data);
@@ -83,6 +87,8 @@ afterEach(() => {
 afterAll(async () => {
   await sequelize.close();
   jest.restoreAllMocks();
+  if (previousDirectory === undefined) delete process.env.PHOTO_STORAGE_PATH;
+  else process.env.PHOTO_STORAGE_PATH = previousDirectory;
   if (previousKey === undefined) delete process.env.PHOTO_ENC_KEY;
   else process.env.PHOTO_ENC_KEY = previousKey;
 });

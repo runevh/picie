@@ -1,3 +1,4 @@
+const { photoPath, publishPhoto, removePhotos } = require('../services/photo/storage');
 const { photoUrl } = require('../services/photo/photoUrl');
 const { prepareImage } = require('../services/photo/dithering');
 const { decodeImage } = require('../services/photo/imageInput');
@@ -5,7 +6,6 @@ const fs = require("fs");
 const { Photo, Album } = require('../models/photo');
 const { Validator } = require('sequelize');
 const generateName = require('sillyname');
-const path = require('path');
 const { randomBytes, createCipheriv, createDecipheriv } = require('crypto');
 
 const ALGO = 'aes-256-gcm';
@@ -56,19 +56,7 @@ const savePhoto = async (req, res) => {
         }
 
         const { image: buffer, pixels } = await prepareImage(decodeImage(req.body.data));
-        const photo = await Photo.create({ owner: user, albumId: album.id });
-        const encryptedImage = encryptBuffer(buffer);
-    
-        const filePath = path.join(__dirname, '..', '..', 'photos', `${photo.id}`);
-        console.log("[photo] writing encrypted image assets", {
-            photoId: photo.id,
-            pngPath: `${filePath}.png`,
-            dataPath: `${filePath}.data`,
-        });
-        fs.writeFileSync(filePath + ".png", encryptedImage);
-
-        const encodedBytes = encryptBuffer(pixels);
-        fs.writeFileSync(filePath + ".data", encodedBytes);
+        const photo = await publishPhoto(user, album.id, encryptBuffer(buffer), encryptBuffer(pixels));
 
         res.status(200).json({
             id: photo.id,
@@ -180,7 +168,7 @@ const getPhoto = async (req, res) => {
             return res.status(404).send('Photo not found');
         }
 
-        const filePath = `./photos/${photoId}.png`;
+        const filePath = photoPath(photoId, 'png');
         const encrypted = fs.readFileSync(filePath);
         const decrypted = decryptBuffer(encrypted);
 
@@ -212,37 +200,12 @@ const deleteAlbum = async (req, res) => {
             return res.status(404).send("Album not found or you don't have permission");
         }
 
-        const photos = await Photo.findAll({
-            where: {
-                albumId: albumId,
-                owner: userId,
-            },
-        });
-
-        const photoIds = photos.map((p) => p.id);
-
-        if (photoIds.length) {
-            await Photo.destroy({
-                where: {
-                    id: photoIds,
-                    owner: userId,
-                },
-            });
-        }
-
-        for (const id of photoIds) {
-            const pngPath = path.join(__dirname, '..', '..', 'photos', `${id}.png`);
-            const dataPath = path.join(__dirname, '..', '..', 'photos', `${id}.data`);
-            try { fs.unlinkSync(pngPath); } catch (_) {}
-            try { fs.unlinkSync(dataPath); } catch (_) {}
-        }
-
-        await album.destroy();
+        const photoIds = await removePhotos(userId, [], albumId);
 
         res.status(200).json({ deleted: albumId, photosDeleted: photoIds });
     } catch (e) {
         console.log(e);
-        res.status(500).send("Error deleting album");
+        res.status(e.status || 500).json({ message: e.status ? e.message : "Error deleting album" });
     }
 };
 
@@ -255,33 +218,12 @@ const deletePhotos = async (req, res) => {
             return res.status(400).send("No photo ids provided");
         }
 
-        const photos = await Photo.findAll({
-            where: {
-                id: ids,
-                owner: userId,
-            },
-        });
-
-        const foundIds = photos.map(p => p.id);
-
-        await Photo.destroy({
-            where: {
-                id: foundIds,
-                owner: userId,
-            },
-        });
-
-        for (const id of foundIds) {
-            const pngPath = path.join(__dirname, '..', '..', 'photos', `${id}.png`);
-            const dataPath = path.join(__dirname, '..', '..', 'photos', `${id}.data`);
-            try { fs.unlinkSync(pngPath); } catch (_) {}
-            try { fs.unlinkSync(dataPath); } catch (_) {}
-        }
+        const foundIds = await removePhotos(userId, ids);
 
         res.status(200).json({ deleted: foundIds });
     } catch (e) {
         console.log(e);
-        res.status(500).send("Error deleting photos");
+        res.status(e.status || 500).json({ message: e.status ? e.message : "Error deleting photos" });
     }
 }
 
