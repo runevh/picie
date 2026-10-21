@@ -2,10 +2,12 @@ const net = require('net');
 const EventEmitter = require('events');
 const Device = require('../models/device');
 const bcrypt = require('bcryptjs');
+const { Validator } = require('sequelize');
 const { sendImage } = require("./photo/imageSender")
 const { getOrCreateDeviceState, markDeviceUpdateSent } = require('../schedules/updateScheduler');
 
-const AUTH_MSG_LENGTH = 98 // UUID(36)+ key(62)
+const AUTH_MSG_LENGTH = 98; // UUID(36) + hex key(62)
+const MAX_AUTH_FRAME_BYTES = AUTH_MSG_LENGTH + 2; // Optional CR followed by LF
 const HEARTBEAT_BASE_MS = 300_000;      // 5 minutes between healthy pings
 const HEARTBEAT_RETRY_MS = 5_000;       // retry interval after a miss
 const HEARTBEAT_MAX_RETRIES = 3;        // destroy after this many consecutive misses
@@ -36,6 +38,8 @@ class TcpClient {
     this.socket = socket;
     this.uuid = null;
     this.authenticated = false;
+    this.authPending = false;
+    this.closed = false;
     this.buffer = Buffer.alloc(0);
     this.pendingResponses = new Map();
     this.lastSeenUpdate = 0;
@@ -52,109 +56,107 @@ class TcpClient {
 
     this.authTimeout = setTimeout(() => {
       console.log('Auth timeout — closing connection');
-      this.socket.destroy();
+      this.closeConnection();
     }, 15000);
 
-        this.socket.on('data', data => this.onData(data));
-        this.socket.on('error', err => {
-            console.error('Socket error:', err);
-        });
-    this.socket.on('end', () => {
-      if (this.uuid) {
-        console.log(`Device ${this.uuid} ended connection`);
-      }
+    this.socket.on('data', data => this.onData(data));
+    this.socket.on('error', err => {
+      console.error('Socket error:', err);
+      this.closeConnection();
     });
-    this.socket.on('close', () => {
-      clearTimeout(this.authTimeout);
-      this.stopHeartbeat();
-      if (this.uuid) {
-        const current = devices.get(this.uuid);
-        if (current === this) {
-          devices.delete(this.uuid);
-          console.log(`Device ${this.uuid} disconnected; cleaned up state`);
-        } else {
-          console.log(`Device ${this.uuid} stale socket closed; current connection retained`);
-        }
-      }
-    });
+    this.socket.on('end', () => this.closeConnection());
+    this.socket.on('close', () => this.closeConnection());
     this.devices = devices
   }
 
-    onData(data) {
-        this.buffer = Buffer.concat([this.buffer, data]);
+  closeConnection() {
+    this.closed = true;
+    this.authenticated = false;
+    this.buffer = Buffer.alloc(0);
+    clearTimeout(this.authTimeout);
+    this.stopHeartbeat();
+    if (this.uuid && this.devices.get(this.uuid) === this) {
+      this.devices.delete(this.uuid);
+    }
+    if (!this.socket.destroyed) this.socket.destroy();
+  }
 
-        if (!this.authenticated) {
-            // Auth - read string lines ending with \n
-            while (true) {
-                const newlineIndex = this.buffer.indexOf('\n');
-                if (newlineIndex === -1) break; // wait for full auth message
+  isClosed() {
+    return this.closed || this.socket.destroyed || this.socket.readableEnded;
+  }
 
-                const lineBuf = this.buffer.subarray(0, newlineIndex);
-                this.buffer = this.buffer.subarray(newlineIndex + 1);
-
-                let line = lineBuf.toString('utf8').replace(/\r$/, '');
-
-                this.handleAuth(line);
-
-                if (this.authenticated) {
-                    this.buffer = Buffer.alloc(0);
-                    break;
-                }
-            }
-        } else {
-            this.handleData(this.buffer);
-            this.buffer = Buffer.alloc(0);
-        }
+  onData(data) {
+    if (this.isClosed()) return;
+    if (this.authenticated) {
+      this.handleData(data);
+      return;
     }
 
+    // Devices must wait for AUTH_OK before sending anything else.
+    if (this.authPending || this.buffer.length + data.length > MAX_AUTH_FRAME_BYTES) {
+      this.closeConnection();
+      return;
+    }
+    this.buffer = Buffer.concat([this.buffer, data]);
+    const newline = this.buffer.indexOf('\n');
+    if (newline === -1) return;
+    if (newline !== this.buffer.length - 1) {
+      this.closeConnection();
+      return;
+    }
+
+    const line = this.buffer.subarray(0, newline).toString('utf8').replace(/\r$/, '');
+    this.buffer = Buffer.alloc(0);
+    void this.handleAuth(line);
+  }
+
   async handleAuth(authString) {
-        if (authString.length != AUTH_MSG_LENGTH) { //Account for the \r at the end
-            console.log('Message not right length');
-            this.socket.destroy();
-            return;
-        };
+    if (this.isClosed()) return;
+    if (this.authPending || this.authenticated) {
+      this.closeConnection();
+      return;
+    }
+    this.authPending = true;
+    try {
+      const recvUuid = authString.slice(0, 36);
+      const secret = authString.slice(36);
+      if (authString.length !== AUTH_MSG_LENGTH || !Validator.isUUID(recvUuid) ||
+          !/^[0-9a-f]{62}$/i.test(secret)) {
+        this.closeConnection();
+        return;
+      }
 
-        const recvUuid = authString.substring(0, 36);
-        const secret = authString.substring(36, AUTH_MSG_LENGTH);
+      const device = await Device.findOne({ where: { uuid: recvUuid } });
+      if (this.isClosed()) return;
+      if (!device) {
+        this.closeConnection();
+        return;
+      }
 
-        if (!recvUuid || !secret) {
-            this.socket.destroy();
-            return;
-        }
+      const secretCorrect = await bcrypt.compare(secret, device.secret);
+      if (this.isClosed()) return;
+      if (!secretCorrect) {
+        this.closeConnection();
+        return;
+      }
 
-        const device = await Device.findOne({ where: { uuid: recvUuid } });
-        if (!device) {
-            console.log('Device not found');
-            this.socket.destroy();
-            return;
-        }
+      // Replace an existing connection only after this one has authenticated.
+      const existing = this.devices.get(recvUuid);
+      if (existing && existing !== this) existing.socket.destroy();
 
-        const secretCorrect = await bcrypt.compare(secret, device.secret);
-
-        if (!secretCorrect) {
-            this.socket.destroy();
-            return;
-        }
-
-        // If this device already has a connected client, drop it in favor of the newly authenticated one.
-        const existing = this.devices.get(recvUuid);
-        if (existing && existing !== this) {
-            console.log(`Device ${recvUuid} re-authenticated; closing previous socket`);
-            try {
-                existing.socket?.destroy();
-            } catch (e) {
-                // ignore
-            }
-        }
-
-        console.log(`Device ${recvUuid} authenticated`);
-        this.authenticated = true;
-        clearTimeout(this.authTimeout);
-        this.uuid = recvUuid;
-        this.devices.set(this.uuid, this);
-    this.socket.write(Buffer.from([0x10])); // Send AUTH_OK
-    this.updateLastSeen();
-    this.startHeartbeat();
+      this.authenticated = true;
+      clearTimeout(this.authTimeout);
+      this.uuid = recvUuid;
+      this.devices.set(recvUuid, this);
+      this.socket.write(Buffer.from([0x10]));
+      this.updateLastSeen();
+      this.startHeartbeat();
+    } catch (err) {
+      console.warn('Device authentication failed:', err.message);
+      this.closeConnection();
+    } finally {
+      this.authPending = false;
+    }
   }
 
     handleData(data) {
