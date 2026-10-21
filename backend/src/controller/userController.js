@@ -187,6 +187,26 @@ const logout = async (req, res) => {
     }
 };
 
+const updateProfile = async (req, res) => {
+    const { firstName, lastName } = req.body;
+    const validName = value => typeof value === 'string' && value.length <= 100 && /^[\p{L}\p{M} '\-]*$/u.test(value);
+    if (!validName(firstName) || !firstName.trim() || !validName(lastName)) {
+        return res.status(400).json({ message: 'Enter valid first and last names (up to 100 characters).' });
+    }
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(401).json({ message: 'Unauthorized' });
+        if ((req.body.username !== undefined && req.body.username !== user.username) ||
+            (req.body.email !== undefined && req.body.email !== user.email)) {
+            return res.status(400).json({ message: 'Contact the administrator to change your username or email.' });
+        }
+        await user.update({ firstName: firstName.trim(), lastName: lastName.trim() });
+        return res.json({ user: publicUser(user) });
+    } catch (error) {
+        return res.status(500).json({ message: 'Could not save your profile. Please try again.' });
+    }
+};
+
 module.exports = {
-    register, login, logout, fetchUser
+    register, login, logout, fetchUser, updateProfile
 };

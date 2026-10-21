@@ -23,13 +23,10 @@ import { PageHero } from "../layout/PageHero";
 import { GlassCard } from "../layout/GlassCard";
 import { MetricTile } from "../layout/MetricTile";
 import { useAuth } from "../../contexts/UserContext";
-import { authService } from "../../services/AuthService";
 
 export function AccountPage() {
   const { user, logout, loading, updateProfile, refreshUser } = useAuth();
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutOpen, { open: openLogout, close: closeLogout }] = useDisclosure(false);
   const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
@@ -93,51 +90,6 @@ export function AccountPage() {
       notifications.show({ title: "Profile updated", message: "Your info was saved.", color: "green" });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDeleteRequest = async () => {
-    setDeleting(true);
-    try {
-      const res = await authService.requestDeletion();
-      if (!res.success) {
-        notifications.show({
-          title: "Request failed",
-          message: res.data || "Could not submit deletion request.",
-          color: "red",
-        });
-      } else {
-        notifications.show({
-          title: "Request received",
-          message: "We logged your account deletion request. A confirmation email will follow.",
-          color: "orange",
-        });
-      }
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handlePasswordReset = async () => {
-    const email = form.values.email || user?.email || "";
-    setResetting(true);
-    try {
-      const res = await authService.requestPasswordReset(email);
-      if (!res.success) {
-        notifications.show({
-          title: "Could not start reset",
-          message: res.data || "Check the email address and try again.",
-          color: "red",
-        });
-      } else {
-        notifications.show({
-          title: "Check your inbox",
-          message: "We sent password reset instructions.",
-          color: "blue",
-        });
-      }
-    } finally {
-      setResetting(false);
     }
   };
 
@@ -205,12 +157,14 @@ export function AccountPage() {
             </SimpleGrid>
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <TextInput
+                readOnly
                 label="Email"
                 placeholder="you@example.com"
                 leftSection={<IconMail size={14} />}
                 {...form.getInputProps("email")}
               />
               <TextInput
+                readOnly
                 label="Username"
                 placeholder="your username"
                 {...form.getInputProps("username")}
@@ -235,12 +189,11 @@ export function AccountPage() {
               <Paper withBorder radius="md" p="md" style={{ borderColor: surfaceBorder, background: "transparent" }}>
                 <Stack gap="sm">
                   <Text fw={600} size="sm">Password reset</Text>
-                  <Text size="xs" c="dimmed">Send yourself a reset link to set a new password.</Text>
+                  <Text size="xs" c="dimmed">Contact the administrator for help changing your password.</Text>
                   <Button
                     variant="light"
                     leftSection={<IconLock size={16} />}
-                    onClick={handlePasswordReset}
-                    loading={resetting}
+                    disabled
                   >
                     Start reset
                   </Button>
@@ -249,13 +202,12 @@ export function AccountPage() {
               <Paper withBorder radius="md" p="md" style={{ borderColor: surfaceBorder, background: "transparent" }}>
                 <Stack gap="sm">
                   <Text fw={600} size="sm">Delete account</Text>
-                  <Text size="xs" c="dimmed">Submit a request to remove your account and data.</Text>
+                  <Text size="xs" c="dimmed">Contact the administrator to request account and data deletion.</Text>
                   <Button
                     color="red"
                     variant="outline"
                     leftSection={<IconTrash size={16} />}
-                    onClick={handleDeleteRequest}
-                    loading={deleting}
+                    disabled
                   >
                     Request deletion
                   </Button>
