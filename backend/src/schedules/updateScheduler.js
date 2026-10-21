@@ -176,6 +176,8 @@ const getNextUpdateLabel = async (deviceId) => {
 const startUpdateScheduler = (tcpServer) => {
   const { pushNextPhotoToDevice } = require('../services/device/imageUpdateManager');
   const tick = async () => {
+    const { recoverPhotoOperations } = require('../services/photo/storage');
+    await recoverPhotoOperations().catch(error => console.error(error.message));
     const devices = tcpServer.getConnectedDevices();
     for (const [uuid] of devices.entries()) {
       const state = await ensureState(uuid);
