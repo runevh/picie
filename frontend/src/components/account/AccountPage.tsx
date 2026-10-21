@@ -8,6 +8,7 @@ import {
   Modal,
   Paper,
   Stack,
+  SimpleGrid,
   Text,
   TextInput,
   Title,
@@ -141,7 +142,7 @@ export function AccountPage() {
   };
 
   return (
-    <Background p={{ base: "md", md: "xl" }} style={{ minHeight: "100%" }}>
+    <Background p={{ base: "md", md: "xl" }} style={{ minHeight: "100%", minWidth: 0, overflowWrap: "anywhere" }}>
       <Stack gap="xl">
         <PageHero
           overlay={heroOverlay}
@@ -190,7 +191,7 @@ export function AccountPage() {
               </Group>
             </Group>
             <Divider />
-            <Group grow gap="md">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <TextInput
                 label="First name"
                 placeholder="First name"
@@ -201,8 +202,8 @@ export function AccountPage() {
                 placeholder="Last name"
                 {...form.getInputProps("lastName")}
               />
-            </Group>
-            <Group grow gap="md">
+            </SimpleGrid>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <TextInput
                 label="Email"
                 placeholder="you@example.com"
@@ -214,7 +215,7 @@ export function AccountPage() {
                 placeholder="your username"
                 {...form.getInputProps("username")}
               />
-            </Group>
+            </SimpleGrid>
           </Stack>
         </GlassCard>
 
@@ -230,7 +231,7 @@ export function AccountPage() {
               </Badge>
             </Group>
             <Divider />
-            <Group gap="md" grow>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <Paper withBorder radius="md" p="md" style={{ borderColor: surfaceBorder, background: "transparent" }}>
                 <Stack gap="sm">
                   <Text fw={600} size="sm">Password reset</Text>
@@ -260,14 +261,14 @@ export function AccountPage() {
                   </Button>
                 </Stack>
               </Paper>
-            </Group>
+            </SimpleGrid>
           </Stack>
         </GlassCard>
 
         <GlassCard radius="lg" p="lg" style={{ background: surface, borderColor: surfaceBorder }}>
           <Stack gap="md">
             <Text fw={600}>Snapshot</Text>
-            <Group gap="md" grow>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               {stats.map((item) => (
                 <MetricTile
                   key={item.label as string}
@@ -279,7 +280,7 @@ export function AccountPage() {
                   shadow="none"
                 />
               ))}
-            </Group>
+            </SimpleGrid>
           </Stack>
         </GlassCard>
       </Stack>
