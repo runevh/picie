@@ -1,3 +1,4 @@
+const { photoUrl } = require('../services/photo/photoUrl');
 const {dither } = require('../services/photo/dithering')
 const fs = require("fs");
 const { Photo, Album } = require('../models/photo');
@@ -154,10 +155,9 @@ const getAlbums = async (req, res) => {
                     attributes: ['id']
                 });
 
-                const baseUrl = `${req.protocol}://${req.get('host')}`;
                 const photosWithUrls = photos.map((photo) => ({
                     id: photo.id,
-                    url: `${baseUrl}/api/photo/get/${photo.id}.png`,
+                    url: photoUrl(photo.id),
                 }));
 
                 return {
