@@ -146,6 +146,7 @@ export function NavbarItem({
       transitionProps={{ duration: 0 }}
     >
       <UnstyledButton
+        aria-label={label}
         onClick={onClick}
         className={"navbar-link"}
         data-active={active || undefined}

@@ -211,3 +211,16 @@ describe('POST /api/register', () => {
         expect(response6.status).toBe(400);
     });
 });
+it('successful logout expires the cookie and subsequent requests stay unauthenticated', async () => {
+    const browser = request.agent(app);
+    await browser.post('/api/register').send({
+        username: 'logoutuser', email: 'logout@example.test', password: 'synthetic-password',
+        firstName: 'Logout', lastName: 'Test',
+    }).expect(200);
+    await browser.get('/api/auth').expect(200);
+    const response = await browser.post('/api/logout').expect(200);
+    expect(response.headers['set-cookie'].join(';')).toMatch(/jwt=;/);
+    expect(response.headers['set-cookie'].join(';')).toMatch(/Max-Age=0/);
+    await browser.get('/api/auth').expect(401);
+    await browser.get('/api/auth').expect(401);
+});

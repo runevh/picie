@@ -2,6 +2,7 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 import { ResponseBody } from "../services/api";
 import { photoService } from "../services/PhotoService";
 import { Album, Photo } from "../types/Photos";
+import { useAuth } from "./UserContext";
 import { getApiBase } from "../util/UrlUtil";
 
 const normalizeAlbumsResponse = (data: unknown): Album[] => {
@@ -40,10 +41,18 @@ const PhotoContext = createContext<PhotoContextType | undefined>(undefined);
 
 export function PhotoProvider({ children }: { children: ReactNode }) {
   const [albums, setAlbums] = useState<Album[]>([]);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    getCollages();
-  }, []);
+    if (loading || !user) return;
+    let cancelled = false;
+    photoService.getAlbums().then(res => {
+      if (!cancelled && res.success) {
+        setAlbums(normalizeAlbumsResponse(res.data?.data ?? res.data));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [user?.username, loading]);
 
   const uploadPhoto = async (data: PhotoReqData): Promise<ResponseBody> => {
     const res = await photoService.uploadPhoto(data);
@@ -115,13 +124,6 @@ export function PhotoProvider({ children }: { children: ReactNode }) {
     }
     return res;
   };
-
-  const getCollages = async (): Promise<ResponseBody> => {
-    const res = await photoService.getAlbums();
-    const albumData = normalizeAlbumsResponse(res.data);
-    setAlbums(() => albumData);
-    return res;
-  }
 
   return (
     <PhotoContext.Provider value={{ albums, uploadPhoto, saveAlbum, createAlbum, deleteAlbum, deletePhotos }}>

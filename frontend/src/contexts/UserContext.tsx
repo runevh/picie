@@ -1,4 +1,4 @@
-import { createContext, useState, ReactNode, useEffect, useContext } from "react";
+import { createContext, useState, ReactNode, useEffect, useContext, Fragment, useRef } from "react";
 import { authService } from "../services/AuthService";
 import { ResponseBody } from "../services/api";
 
@@ -15,7 +15,7 @@ interface UserContextType {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<ResponseBody>;
   register: (username: string, email: string, password: string, firstName: string, lastName: string) => Promise<ResponseBody>;
-  logout: () => void;
+  logout: () => Promise<ResponseBody>;
   refreshUser: () => Promise<ResponseBody | null>;
   updateProfile: (updates: Partial<User>) => Promise<ResponseBody>;
   loading: boolean;
@@ -26,47 +26,58 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const sessionVersion = useRef(0);
+  const changeUser = (next: User | null) => {
+    sessionVersion.current++;
+    setUser(next);
+    setLoading(false);
+  };
 
   useEffect(() => {
+    let cancelled = false;
+    const version = sessionVersion.current;
     const fetchUser = async () => {
       try {
         const res = await authService.fetchUser();
-        if (res.success && res.data) {
+        if (!cancelled && version === sessionVersion.current && res.success && res.data) {
           console.log(res.data.data);
           setUser(res.data.data);
         }
       } catch (e) {
         console.error(e);
       } finally {
-        setLoading(false);
+        if (!cancelled && version === sessionVersion.current) setLoading(false);
       }
     }
     fetchUser();
+    return () => { cancelled = true; };
   }, []);
 
   const register = async (username: string, email: string, password: string, firstName: string, lastName: string): Promise<ResponseBody> => {
     const res = await authService.register(username, email, password, firstName, lastName);
-    if (res.success) setUser(res.data.user);
+    if (res.success) changeUser(res.data.user);
     return res;
   }
 
   const login = async (username: string, password: string): Promise<ResponseBody> => {
     const res = await authService.login(username, password);
-    if (res.success) setUser(res.data.user);
+    if (res.success) changeUser(res.data.user);
     console.log(res.data.user);
     return res;
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    const res = await authService.logout();
+    if (res.success) changeUser(null);
+    return res;
   };
 
   const refreshUser = async (): Promise<ResponseBody | null> => {
+    const version = sessionVersion.current;
     setLoading(true);
     try {
       const res = await authService.fetchUser();
-      if (res.success && res.data) {
+      if (version === sessionVersion.current && res.success && res.data) {
         const fetched = (res.data as any).data ?? (res.data as any).user ?? res.data;
         setUser(fetched);
       }
@@ -75,13 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error(e);
       return null;
     } finally {
-      setLoading(false);
+      if (version === sessionVersion.current) setLoading(false);
     }
   };
 
   const updateProfile = async (updates: Partial<User>): Promise<ResponseBody> => {
+    const version = sessionVersion.current;
     const res = await authService.updateProfile(updates);
-    if (res.success && res.data) {
+    if (version === sessionVersion.current && res.success && res.data) {
       const updated = (res.data as any).user ?? (res.data as any).data ?? res.data;
       if (updated) setUser(updated);
     }
@@ -101,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
       }}
     >
-      {children}
+      {/* Reset account-specific caches and dialogs when authentication changes. */}
+      <Fragment key={user?.username ?? "signed-out"}>{children}</Fragment>
     </UserContext.Provider>
   );
 }
