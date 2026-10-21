@@ -30,7 +30,7 @@ class DockerImageTest(unittest.TestCase):
             for relative in tracked + ['backend/.dockerignore']:
                 source = ROOT / relative
                 part = source.relative_to(ROOT / 'backend')
-                if part.parts[0] not in ('src', 'scripts', 'tests', 'Dockerfile', '.dockerignore', 'package.json'):
+                if part.parts[0] not in ('src', 'scripts', 'tests', 'Dockerfile', '.dockerignore', 'package.json', 'package-lock.json'):
                     continue
                 if source.is_file():
                     target = context / source.relative_to(ROOT / 'backend')
