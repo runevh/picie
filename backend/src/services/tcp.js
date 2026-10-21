@@ -3,8 +3,6 @@ const EventEmitter = require('events');
 const Device = require('../models/device');
 const bcrypt = require('bcryptjs');
 const { Validator } = require('sequelize');
-const { sendImage } = require("./photo/imageSender")
-const { getOrCreateDeviceState, markDeviceUpdateSent } = require('../schedules/updateScheduler');
 
 const AUTH_MSG_LENGTH = 98; // UUID(36) + hex key(62)
 const MAX_AUTH_FRAME_BYTES = AUTH_MSG_LENGTH + 2; // Optional CR followed by LF
@@ -100,6 +98,7 @@ class TcpClient {
     if (this.closed) return;
     this.closed = true;
     const error = new Error('Device disconnected');
+    this.imageTransfer?.cancel(error);
     for (const handler of this.pendingResponses.values()) handler.cancel?.(error);
     for (const waiter of [...this.statusWaiters]) waiter.cancel(error);
     this.pendingTask?.reject(error);
@@ -226,6 +225,8 @@ class TcpClient {
     const [code, ...rest] = data;
 
     if (code >= 0x40 && code <= 0x4F) {
+      this.imageTransfer?.status(code);
+      if (this.isClosed()) return;
       const previousStatus = this.status;
       const nextStatus = this.mapStatusCode(code);
       console.log(`Device ${this.uuid || 'unknown'} status code 0x${code.toString(16)}: ${previousStatus} -> ${nextStatus}`);
@@ -354,15 +355,6 @@ class TcpClient {
         if (!task || task.settled || this.isClosed()) continue;
         this.activeTask = task;
         const execute = async () => {
-          if (task.label.startsWith('send-image-') && this.uuid) {
-            const targetPhotoId = task.label.substring('send-image-'.length);
-            const state = await getOrCreateDeviceState(this.uuid);
-            if (task.settled || this.isClosed()) throw new Error('Device task cancelled');
-            if (state?.currentPhotoId && String(state.currentPhotoId) === targetPhotoId) {
-              await markDeviceUpdateSent(this.uuid, { currentPhotoId: targetPhotoId });
-              return state;
-            }
-          }
           if (task.settled || this.isClosed()) throw new Error('Device task cancelled');
           return task.taskFn();
         };

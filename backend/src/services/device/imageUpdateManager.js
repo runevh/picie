@@ -1,10 +1,10 @@
+const { DeviceState } = require('../../models/deviceState');
 const { getDevicePhoto } = require('./albumAccess');
 const { sendImage } = require('../photo/imageSender');
 const {
   getOrCreateDeviceState,
   ensureNextPlannedPhoto,
-  markDeviceUpdateSent,
-  planNextUpdate,
+  confirmDevicePhoto,
 } = require('../../schedules/updateScheduler');
 
 const ensureNextState = async (deviceId) => {
@@ -13,8 +13,10 @@ const ensureNextState = async (deviceId) => {
     state = await ensureNextPlannedPhoto(deviceId);
   }
   if (!await getDevicePhoto(state, state.nextPhotoId)) {
-    state.nextPhotoId = null;
-    await state.save();
+    await DeviceState.update({ nextPhotoId: null }, {
+      where: { deviceId, albumId: state.albumId, nextPhotoId: state.nextPhotoId, updatedAt: state.updatedAt },
+    });
+    state = await getOrCreateDeviceState(deviceId);
   }
   return state;
 };
@@ -57,34 +59,21 @@ const pushNextPhotoToDevice = async (deviceId, client) => {
 
       const photoId = state.nextPhotoId;
 
-      if (state.currentPhotoId && String(state.currentPhotoId) === String(photoId)) {
-        // Already active; just move schedule forward.
-        state = await markDeviceUpdateSent(deviceId, { currentPhotoId: photoId, skipPlan: true });
-        return state;
-      }
-
       await sendImage(client, photoId, {
         chunkTimeoutMs: 30000,
         deviceId,
         enqueue: false, // already inside enqueueTask
         authorize: async (started = false) => {
-          // Once sending, validate the captured photo; the scheduler may already have advanced.
+          // Recheck the captured photo before every chunk and after confirmation.
           const fresh = await getOrCreateDeviceState(deviceId);
           if (fresh.albumId !== state.albumId || (!started && fresh.nextPhotoId !== photoId) ||
               !await getDevicePhoto(fresh, photoId)) {
             throw new Error('Photo access changed during delivery');
           }
         },
-        onStart: async () => {
-          // Mark current when bytes begin flowing, then plan the next image.
-          const freshState = await getOrCreateDeviceState(deviceId);
-          freshState.currentPhotoId = photoId;
-          await freshState.save();
-          await planNextUpdate(freshState);
-        },
       });
 
-      state = await markDeviceUpdateSent(deviceId, { currentPhotoId: photoId, skipPlan: true });
+      state = await confirmDevicePhoto(deviceId, photoId, state.albumId);
       return state;
     };
 

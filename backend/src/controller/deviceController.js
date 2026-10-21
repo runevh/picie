@@ -417,6 +417,7 @@ const updateDeviceSettings = async (req, res) => {
 
         if (albumId !== undefined) {
             state.albumId = albumId || null;
+            if (previousAlbumId !== state.albumId) state.nextPhotoId = null;
             await state.save();
             console.log("[device:update] set album", { deviceId: device.uuid, albumId: state.albumId });
         }

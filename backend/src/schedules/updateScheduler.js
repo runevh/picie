@@ -1,5 +1,5 @@
 const { validateTimeZone, nextTimeOfDay } = require('./timezone');
-const { getDeviceAlbum } = require('../services/device/albumAccess');
+const { getDeviceAlbum, getDevicePhoto } = require('../services/device/albumAccess');
 const { DeviceState, DEFAULT_INTERVAL_MINUTES } = require('../models/deviceState');
 const { Photo } = require('../models/photo');
 
@@ -106,9 +106,10 @@ const planNextUpdate = async (state) => {
 const ensureNextPlannedPhoto = async (deviceId) => {
   const state = await ensureState(deviceId);
   const nextPhotoId = await selectNextPhotoId(state);
-  state.nextPhotoId = nextPhotoId;
-  await state.save();
-  return state;
+  await DeviceState.update({ nextPhotoId }, {
+    where: { deviceId, albumId: state.albumId, updatedAt: state.updatedAt },
+  });
+  return ensureState(deviceId);
 };
 
 const setDeviceSchedule = async (deviceId, schedule) => {
@@ -129,21 +130,19 @@ const setDeviceSchedule = async (deviceId, schedule) => {
   return state;
 };
 
-const markDeviceUpdateSent = async (deviceId, options = {}) => {
+const confirmDevicePhoto = async (deviceId, photoId, albumId) => {
   const state = await ensureState(deviceId);
-  if (options.currentPhotoId !== undefined) {
-    state.currentPhotoId = options.currentPhotoId;
-  } else if (state.nextPhotoId) {
-    state.currentPhotoId = state.nextPhotoId;
+  if (state.albumId !== albumId || state.nextPhotoId !== photoId || !await getDevicePhoto(state, photoId)) {
+    throw new Error('Photo selection changed before confirmation');
   }
-  if (options.nextPhotoId !== undefined) {
-    state.nextPhotoId = options.nextPhotoId;
-  }
-  await state.save();
-  if (!options.skipPlan) {
-    await planNextUpdate(state);
-  }
-  return state;
+  const updatedAt = state.updatedAt;
+  state.currentPhotoId = photoId;
+  const nextPhotoId = await selectNextPhotoId(state);
+  const [count] = await DeviceState.update({
+    currentPhotoId: photoId, nextPhotoId, nextUpdateAt: computeNextRun(state),
+  }, { where: { deviceId, albumId, nextPhotoId: photoId, updatedAt } });
+  if (!count) throw new Error('Photo selection changed before confirmation');
+  return ensureState(deviceId);
 };
 
 const getNextUpdateLabel = async (deviceId) => {
@@ -199,13 +198,10 @@ const startUpdateScheduler = (tcpServer) => {
         scheduledFor: state.nextUpdateAt ? new Date(state.nextUpdateAt).toISOString() : "immediate",
       });
       try {
-        const updatedState = await pushNextPhotoToDevice(uuid, client);
-        if (!updatedState?.nextUpdateAt) {
-          await planNextUpdate(state);
-        }
+        await pushNextPhotoToDevice(uuid, client);
       } catch (err) {
         console.error(`[scheduler] failed to push photo to device ${uuid}`, err);
-        await planNextUpdate(state);
+        // Keep the pending photo and due time so a failed delivery can retry.
       }
     }
   };
@@ -226,7 +222,7 @@ module.exports = {
   computeNextRun,
   startUpdateScheduler,
   getNextUpdateLabel,
-  markDeviceUpdateSent,
+  confirmDevicePhoto,
   setDeviceSchedule,
   getOrCreateDeviceState,
   planNextUpdate,
