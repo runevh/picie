@@ -314,6 +314,14 @@ describe('device album authorization', () => {
 });
 
 
+test('current frame photos use relative URLs even with untrusted host headers', async () => {
+    await state.update({ currentPhotoId: alicePhoto.id });
+    const res = response();
+    await getUserDevices({ user: { id: alice.id }, protocol: 'http', get: () => 'attacker.test' }, res);
+    expect(JSON.stringify(res.body)).toContain(`/api/photo/get/${alicePhoto.id}.png`);
+    expect(JSON.stringify(res.body)).not.toContain('attacker.test');
+});
+
 test('frame preview uses the authorized photo delivery path', async () => {
     const tcp = require('../src/services/tcpServer');
     const { triggerFramePreview } = require('../src/controller/deviceController');

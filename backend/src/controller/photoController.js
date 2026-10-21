@@ -1,3 +1,4 @@
+const { photoUrl } = require('../services/photo/photoUrl');
 const { prepareImage } = require('../services/photo/dithering');
 const { decodeImage } = require('../services/photo/imageInput');
 const fs = require("fs");
@@ -146,7 +147,7 @@ const getAlbums = async (req, res) => {
 
                 const photosWithUrls = photos.map((photo) => ({
                     id: photo.id,
-                    url: `${baseUrl}/api/photo/get/${photo.id}.png`,
+                    url: photoUrl(photo.id),
                 }));
 
                 return {

@@ -1,3 +1,4 @@
+const { photoUrl } = require('../services/photo/photoUrl');
 const { getDeviceAlbum, getAlbumView } = require('../services/device/albumAccess');
 const Device = require('../models/device');
 const User = require('../models/user');
@@ -63,8 +64,8 @@ const getAllDevices = async (req, res) => {
             const state = await getOrCreateDeviceState(device.uuid);
             const nextUpdate = await getNextUpdateLabel(device.uuid);
             const album = state?.albumId ? await Album.findByPk(state.albumId, { attributes: ['id', 'name'] }) : null;
-            const baseUrl = `${req.protocol}://${req.get('host')}`;
-            const activeImage = state?.currentPhotoId ? `${baseUrl}/api/photo/get/${state.currentPhotoId}.png` : null;
+
+            const activeImage = state?.currentPhotoId ? photoUrl(state.currentPhotoId) : null;
             return {
                 id: device.publicId,
                 uuid: device.uuid,
@@ -131,8 +132,8 @@ const getUserDevices = async (req, res) => {
             const state = device.Device ? await getOrCreateDeviceState(device.Device.uuid) : null;
             const nextUpdate = device.Device ? await getNextUpdateLabel(device.Device.uuid) : "update now";
             const albumView = await getAlbumView(state, userId);
-            const baseUrl = `${req.protocol}://${req.get('host')}`;
-            const activeImage = albumView.currentPhotoId ? `${baseUrl}/api/photo/get/${albumView.currentPhotoId}.png` : null;
+
+            const activeImage = albumView.currentPhotoId ? photoUrl(albumView.currentPhotoId) : null;
             return {
                 ...device.toJSON(),
                 id: device.Device?.publicId,
