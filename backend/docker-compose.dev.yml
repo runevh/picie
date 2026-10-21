@@ -41,6 +41,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: test
     container_name: backend_test
     environment:
       - NODE_ENV=test

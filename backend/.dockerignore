@@ -1,0 +1,21 @@
+# Only application sources and package manifests enter the build context.
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!src/
+!src/**
+!scripts/
+!scripts/**
+!tests/
+!tests/**
+# Never include secrets or local artifacts, even inside allowed directories.
+**/.env*
+**/*.pem
+**/*.key
+**/credentials*
+**/secrets*
+**/photos
+**/node_modules
+**/coverage
+**/*.log

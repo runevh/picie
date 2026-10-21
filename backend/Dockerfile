@@ -1,20 +1,17 @@
-# Use official Node.js runtime
-FROM node:20
-
-# Set the working dir
+FROM node:20 AS runtime
 WORKDIR /app
 
-# Copy package.json and package-lock.json
 COPY package*.json ./
+RUN npm install --no-audit --no-fund
 
-# Install dependencies 
-RUN npm install
+COPY src ./src
+COPY scripts ./scripts
 
-# Copy all files
-COPY . .
-
-# Run on port 3000
 EXPOSE 7734
-
-# Command for running application
 CMD ["npm", "start"]
+
+FROM runtime AS test
+COPY tests ./tests
+CMD ["npm", "test"]
+
+FROM runtime AS production
