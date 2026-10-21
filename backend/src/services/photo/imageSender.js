@@ -44,103 +44,54 @@ async function getRawData(photoId) {
     });
 }
 
-const sendImage = async (client, photoId, options = {}) => {
-    const {
-        chunkTimeoutMs = 20000,
-        deviceId = 'unknown',
-        enqueue = true,
-    } = options;
+const { beginImageTransfer } = require('./transfer');
 
-    const ensureIdle = async () => {
-        const start = Date.now();
-        const MAX_WAIT = 60_000;
-        while (true) {
-            // When called from processTaskQueue we already hold the pendingTask;
-            // only gate on device status, not the task queue itself.
-            const busy = client.status && client.status !== 'idle';
-            if (!busy) {
-                console.log(`[sendImage] device ${deviceId} idle, starting transfer`);
-                return;
-            }
-
-            if (typeof client.waitUntilIdle === 'function') {
-                await client.waitUntilIdle();
-            } else {
-                await new Promise(res => setTimeout(res, 200));
-            }
-
-            if (Date.now() - start > MAX_WAIT) {
-                throw new Error(`Timed out waiting for device ${deviceId} to become idle`);
-            }
-            console.log(`[sendImage] device ${deviceId} still busy, waiting...`);
-        }
+async function transferBytes(client, bytes, options = {}) {
+    if (!bytes.length) throw new Error('Empty image payload');
+    await client.waitUntilIdle();
+    if (options.authorize) await options.authorize();
+    const transfer = beginImageTransfer(client, options.photoId || null, options.confirmationTimeoutMs || 90000);
+    const requestChunk = () => {
+        const response = client.waitForResponse(0x21, options.chunkTimeoutMs || 20000);
+        response.catch(() => {});
+        return response;
     };
-
-    const doSend = async () => {
-        await ensureIdle();
-
-        if (options.authorize) await options.authorize();
-        const rawBytes = await getRawData(photoId);
-        if (options.authorize) await options.authorize();
-        console.log(`[sendImage] start transfer device=${deviceId} photo=${photoId} bytes=${rawBytes.length}`);
-
-        client.send([0x20]); // Ask to start image transfer
-        let sentBytes = 0;
-        let started = false;
-
-        while (sentBytes < rawBytes.length) {
-            const sizeData = await client.waitForResponse(0x21, chunkTimeoutMs);
-            const size = sizeData.readUInt32LE(0);
-            console.log(`[sendImage] device=${deviceId} requested chunk size=${size} offset=${sentBytes}`);
-            if (!started) {
-                if (options.authorize) await options.authorize();
-                started = true;
-                if (typeof options.onStart === 'function') {
-                    try {
-                        await options.onStart();
-                    } catch (err) {
-                        console.warn('sendImage onStart hook failed', err);
-                    }
-                }
-            }
-            if (options.authorize) await options.authorize(started);
-            client.send(rawBytes.subarray(sentBytes, sentBytes + size));
-            console.log("Sent " + size+ " bytes");
-            sentBytes += size;
-        }
-
-        console.log(`[sendImage] Done sending to device=${deviceId}`);
-    };
-
-    if (enqueue && typeof client.enqueueTask === 'function') {
-        return client.enqueueTask(doSend, `send-image-${photoId}`);
-    }
-
-    return doSend();
-}
-
-const sendBuffer = async (client, buffer) => {
-    // Request size that we should send over
     try {
-        client.send([0x20]); // Ask to start image transfer
-        let sentBytes = 0;
-
-        console.log(buffer.length);
-
-        while (sentBytes < buffer.length) {
-            const sizeData = await client.waitForResponse(0x21)
-            const size = sizeData.readUInt32LE(0);
-            console.log(size);
-            client.send(buffer.subarray(sentBytes, sentBytes + size));
-            console.log("Sent " + size+ " bytes");
-            sentBytes += size;
+        let response = requestChunk();
+        client.send([0x20]);
+        let offset = 0;
+        while (offset < bytes.length) {
+            const data = await response;
+            if (!transfer.started) throw new Error('Chunk requested before image transfer started');
+            if (data.length !== 4) throw new Error('Invalid image chunk request');
+            const size = data.readUInt32LE(0);
+            if (!size || size > bytes.length - offset) throw new Error('Invalid image chunk size');
+            if (options.authorize) await options.authorize(offset > 0);
+            if (client.isClosed()) throw new Error('Device disconnected');
+            const end = offset + size;
+            // Install the next waiter before writing: replies can arrive immediately.
+            if (end < bytes.length) response = requestChunk();
+            else transfer.sent = true;
+            client.send(bytes.subarray(offset, end));
+            offset = end;
         }
-
-        console.log("Done sending");
-    } catch (e) {
-        console.error('Failed send data:', e);
-        throw e;
+        await transfer.completed;
+        if (options.authorize) await options.authorize(true);
+    } catch (error) {
+        transfer.fail(error);
+        throw error;
     }
 }
 
-module.exports = { sendImage, sendBuffer }
+const sendImage = async (client, photoId, options = {}) => {
+    const send = async () => {
+        await client.waitUntilIdle();
+        if (options.authorize) await options.authorize();
+        const bytes = await getRawData(photoId);
+        return transferBytes(client, bytes, { ...options, photoId });
+    };
+    return options.enqueue !== false ? client.enqueueTask(send, `send-image-${photoId}`) : send();
+};
+
+const sendBuffer = (client, bytes) => client.enqueueTask(() => transferBytes(client, bytes), 'send-pairing-image');
+module.exports = { sendImage, sendBuffer, transferBytes };

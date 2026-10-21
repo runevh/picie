@@ -63,13 +63,23 @@ async function assign(albumId, extra = {}) {
 
 function simulatedFrame() {
   const sent = [];
+  let requested = 0;
   return {
     status: 'idle', sent,
-    send: jest.fn(bytes => sent.push(Buffer.from(bytes))),
+    waitUntilIdle: async () => {},
+    isClosed() { return !!this.closed; },
+    closeConnection() { this.closed = true; this.imageTransfer?.cancel(new Error('Device disconnected')); },
+    send: jest.fn(function(bytes) {
+      sent.push(Buffer.from(bytes));
+      if (sent.length === 1) this.imageTransfer.status(0x41);
+      else if (this.imageTransfer?.sent) this.imageTransfer.status(0x40);
+    }),
     waitForResponse: jest.fn(async opcode => {
       if (opcode !== 0x21) throw new Error(`Unexpected opcode ${opcode}`);
       const size = Buffer.alloc(4);
-      size.writeUInt32LE(8); // Exercise multiple real image chunks.
+      const length = Math.min(8, aliceBytes.length - requested);
+      size.writeUInt32LE(length);
+      requested += length; // Exercise multiple real image chunks.
       return size;
     }),
   };
