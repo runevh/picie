@@ -1,5 +1,7 @@
 import { getRequest, postRequest, postBinary } from "./api"; // Adjust path as needed
 
+export type PairingSession = { id: string; sessionId: string; expiresAt: number };
+
 export const deviceService = {
   createDevice: async () => {
     return await postRequest("device/create", {});
@@ -17,12 +19,12 @@ export const deviceService = {
     return await postRequest("device/pairing/start", {id});
   },
 
-  endClaimDevice: async (pin: string) => {
-    return await postRequest("device/claim/end", {pin});
+  endClaimDevice: async (pin: string, session: PairingSession) => {
+    return await postRequest("device/claim/end", {pin, id: session.id, sessionId: session.sessionId});
   },
 
-  cancelPairing: async () => {
-    return await postRequest("device/pairing/cancel", {});
+  cancelPairing: async (session: PairingSession) => {
+    return await postRequest("device/pairing/cancel", { id: session.id, sessionId: session.sessionId });
   },
 
   getDeviceStatus: async (id: string) => {

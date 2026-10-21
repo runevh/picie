@@ -164,155 +164,78 @@ const getUserDevices = async (req, res) => {
     }
 };
 
-// Tracks pairing sessions in memory: key is device publicId.
-const pairingDevices = new Map();
+const { createPairingSessions, fail } = require('../services/device/pairingSessions');
+const pairingSessions = createPairingSessions();
 
-// Begin a pairing session: validate device availability and show PIN.
+const pairingError = (res, error) => res.status(error.status || 500).json({
+    success: false,
+    message: error.status ? error.message : 'Unable to pair this frame. Try again.',
+});
+
 const startPairing = async (req, res) => {
+    let session;
     try {
-        const { id: deviceCode } = req.body;
-        const { id: userId } = req.user;
-
-        const device = await Device.findOne({
-            where: {
-                publicId: deviceCode
-            }
-        })
-
-        if (!device) {
-            throw new Error("No device found with that id");
-        }
-
-        const prevOwner = await UserDeviceRole.findOne({
-          where: {
-            deviceId: device.uuid,
-            role: "OWNER",
-          }  
-        })
-
-        if (prevOwner) {
-            return res.status(400).json({
-                success: false,
-                message: "This frame already has an owner"
-            });
-        }
-
+        const { id } = req.body;
+        if (typeof id !== 'string' || !/^\d{6}$/.test(id)) throw fail(400, 'Invalid device code');
+        const device = await Device.findOne({ where: { publicId: id } });
+        if (!device) throw fail(404, 'No device found with that id');
+        const owner = await UserDeviceRole.findOne({ where: { deviceId: device.uuid, role: 'OWNER' } });
+        if (owner) throw fail(409, 'This frame already has an owner');
         const client = tcpServer.getConnectedDevices().get(device.uuid);
+        if (!client) throw fail(400, 'Device is offline. Please power it on and try again.');
+        if (client.status && client.status !== 'idle') throw fail(409, 'Device is busy. Please try again later.');
 
-        if (!client) {
-            return res.status(400).json({
-                success: false,
-                message: "Device is offline. Please power it on and try again."
-            });
-        }
-
-        if (client.status && client.status !== 'idle') {
-            return res.status(400).json({
-                success: false,
-                message: `Device is not idle (current state: ${client.status}). Please wait until it is idle and try again.`
-            });
-        }
-
-        const pin = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-
-        pairingDevices.set(deviceCode, {userId: userId, pin: pin, startTime: Date.now(), attempts: 0})
-
-        const buffer = await dither(await generateNumberImage(pin));
+        session = pairingSessions.begin(req.user.id, id, device.uuid);
+        const buffer = await dither(await generateNumberImage(session.pin));
+        pairingSessions.get(req.user.id, id, session.sessionId);
         await sendBuffer(client, buffer);
-
-        res.json({
-            success: true,
-        });
-    } catch (e) {
-        console.log(e)
-        return res.status(400).json({
-            success: false,
-            data: {message: e || 'An error occurred while claiming the device.'}
-        });
-    }
-}
-
-const completePairing = async (req, res) => {
-    try {
-        const { pin } = req.body;
-        const { id: userId } = req.user;
-
-        if (!pin || typeof pin !== 'string' || pin.length !== 4) {
-            return res.status(400).json({ success: false, message: 'Invalid pairing code' });
-        }
-
-        const sessionEntry = Array.from(pairingDevices.entries()).find(([, value]) => value.userId === userId);
-        if (!sessionEntry) {
-            return res.status(400).json({ success: false, message: 'Pairing session not found or expired' });
-        }
-
-        const [deviceCode, info] = sessionEntry;
-
-        if (info.pin !== pin) {
-            info.attempts = (info.attempts || 0) + 1;
-            pairingDevices.set(deviceCode, info);
-
-            const attemptsLeft = Math.max(0, 3 - info.attempts);
-            if (info.attempts >= 3) {
-                pairingDevices.delete(deviceCode);
-                return res.status(400).json({
-                    success: false,
-                    message: 'Pairing failed too many times. Please restart pairing.',
-                });
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: `Incorrect pairing code. ${attemptsLeft} attempt(s) remaining.`,
-            });
-        }
-
-        const device = await Device.findOne({ where: { publicId: deviceCode } });
-        if (!device) {
-            pairingDevices.delete(deviceCode);
-            return res.status(404).json({ success: false, message: 'Device not found' });
-        }
-
-        await UserDeviceRole.create({
-            userId,
-            deviceId: device.uuid,
-            role: 'OWNER',
-        });
-
-        pairingDevices.delete(deviceCode);
-
-        return res.json({
-            success: true,
-            data: {
-                id: device.publicId,
-                uuid: device.uuid,
-                name: device.name,
-                lastSeen: device.lastSeen,
-            },
-        });
-    } catch (e) {
-        console.error('Error completing pairing:', e);
-        return res.status(500).json({ success: false, message: 'Failed to complete pairing' });
+        pairingSessions.get(req.user.id, id, session.sessionId);
+        session.state = 'ready';
+        return res.json({ success: true, data: { id, sessionId: session.sessionId, expiresAt: session.expiresAt } });
+    } catch (error) {
+        if (session) pairingSessions.remove(session);
+        return pairingError(res, error);
     }
 };
 
-// Cancel an active pairing session for the current user.
+const completePairing = async (req, res) => {
+    let session;
+    try {
+        const { id, sessionId, pin } = req.body;
+        session = pairingSessions.claim(req.user.id, id, sessionId, pin);
+        const device = await Device.sequelize.transaction(async transaction => {
+            const device = await Device.findOne({
+                where: { uuid: session.deviceId }, transaction, lock: transaction.LOCK.UPDATE,
+            });
+            pairingSessions.get(req.user.id, id, sessionId);
+            if (!device) throw fail(404, 'Device not found');
+            const owner = await UserDeviceRole.findOne({
+                where: { deviceId: device.uuid, role: 'OWNER' }, transaction,
+            });
+            if (owner) throw fail(409, 'This frame already has an owner');
+            // Recheck after database waits, before granting ownership.
+            pairingSessions.get(req.user.id, id, sessionId);
+            await UserDeviceRole.create({ userId: req.user.id, deviceId: device.uuid, role: 'OWNER' }, { transaction });
+            return device;
+        });
+        return res.json({ success: true, data: {
+            id: device.publicId, uuid: device.uuid, name: device.name, lastSeen: device.lastSeen,
+        } });
+    } catch (error) {
+        if (error.name === 'SequelizeUniqueConstraintError') error = fail(409, 'This frame already has an owner');
+        return pairingError(res, error);
+    } finally {
+        if (session) pairingSessions.remove(session);
+    }
+};
+
 const cancelPairing = async (req, res) => {
     try {
-        const { id: userId } = req.user;
-        const entry = Array.from(pairingDevices.entries()).find(([, value]) => value.userId === userId);
-
-        if (!entry) {
-            return res.json({ success: true });
-        }
-
-        const [deviceCode] = entry;
-        pairingDevices.delete(deviceCode);
-
+        pairingSessions.cancel(req.user.id, req.body.id, req.body.sessionId);
         return res.json({ success: true });
-    } catch (e) {
-        console.error('Error canceling pairing:', e);
-        return res.status(500).json({ success: false, message: 'Failed to cancel pairing' });
+    } catch (error) {
+        if (error.status === 410) return res.json({ success: true });
+        return pairingError(res, error);
     }
 };
 
