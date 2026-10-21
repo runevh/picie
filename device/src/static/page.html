@@ -154,6 +154,10 @@
     <div class="container">
         <h1>Welcome!</h1>
         <p>Set up your live picture frame by connecting to your WiFi.</p>
+        <p>Setup closes after five minutes. Enter the setup code shown over USB.</p>
+        <label for="setup-code">Setup code:</label>
+        <input type="password" id="setup-code" class="text-input" autocomplete="off" maxlength="32" required>
+        <p id="setup-status" role="status"></p>
         <p>Choose a network or enter your WiFi details manually.</p>
         <button type="submit" class="submit-btn inactive" onclick="searchWiFi()">Scan for WiFi networks</button>
 
@@ -166,7 +170,7 @@
             <div class="seperator-line" style="flex: 1;"></div>
         </div>
 
-        <form action="/setWifiCredentials" method="POST">
+        <form id="manualForm" action="/setWifiCredentials" method="POST">
 
             <label for="ssid" style="margin-top: 0;">Ssid:</label>
             <input type="text" class="text-input" id="ssid" name="ssid" required>
@@ -182,8 +186,11 @@
     function searchWiFi() {
         const networkList = document.getElementById("network-list");
         networkList.innerHTML = '<div style="display: flex; width: 100%; justify-content: center;"><div class="loader"></div></div>';
-        fetch('/searchWifi')
-            .then(response => response.json())
+        fetch('/searchWifi', { headers: setupHeaders() })
+            .then(async response => {
+                if (!response.ok) throw new Error(await response.text());
+                return response.json();
+            })
             .then(data => {
                 networkList.innerHTML = "";
 
@@ -210,7 +217,10 @@
                     seperator.className = 'seperator-line';
                     networkList.appendChild(seperator);
                 });
-            })
+            }).catch(error => {
+                networkList.textContent = '';
+                document.getElementById('setup-status').textContent = error.message;
+            });
     }
 
     function enterPasswordForSsid(ssid) {
@@ -222,22 +232,29 @@
         document.getElementById("ssid-input").value = ssid;
     }
 
-    document.getElementById("wifiForm").addEventListener("submit", async event => {
+    function setupHeaders() {
+        return { 'X-Setup-Code': document.getElementById('setup-code').value };
+    }
+
+    for (const form of document.querySelectorAll('form')) form.addEventListener('submit', async event => {
         event.preventDefault();
-        const button = event.target.querySelector('button[type="submit"]');
+        const button = form.querySelector('button[type="submit"]');
         button.disabled = true;
         try {
-            // URLSearchParams preserves SSID newlines instead of normalizing them as a form does.
+            // Preserve exact SSID characters, including newlines.
             const response = await fetch('/setWifiCredentials', {
                 method: 'POST',
+                headers: setupHeaders(),
                 body: new URLSearchParams({
-                    ssid: document.getElementById("ssid-input").value,
-                    password: document.getElementById("password-input").value,
+                    ssid: form.elements.ssid.value,
+                    password: form.elements.password.value,
                 }),
             });
-            if (!response.ok) throw new Error('Connection failed');
+            if (!response.ok) throw new Error(await response.text());
+            document.getElementById('setup-status').textContent = '';
             button.textContent = 'Settings sent. Reconnect to your Wi-Fi.';
-        } catch {
+        } catch (error) {
+            document.getElementById('setup-status').textContent = error.message;
             button.disabled = false;
             button.textContent = 'Could not send settings. Try again.';
         }

@@ -11,3 +11,5 @@ void init_storage();
 String read_at_address(int addr);
 
 void write_at_address(int addr, const String &s);
+
+bool write_wifi_credentials(const String &ssid, const String &password);

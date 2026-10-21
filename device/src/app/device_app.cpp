@@ -19,6 +19,9 @@ DeviceApp::DeviceApp(const AppConfig &config)
 void DeviceApp::setup() {
     Serial.begin(115200);
     init_storage();
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_STA);
+    Serial.println("Send WIFI_SETUP over USB serial to configure Wi-Fi.");
 
     provisionIdentityOverSerial();
 
@@ -33,14 +36,13 @@ void DeviceApp::setup() {
     Serial.println("Done initializing");
 
     if (!ensureWifiConnection()) {
-        enterProvisioningMode();
         return;
     }
 
     // Ensure system time is set before TLS connections.
     sync_time();
 
-    if (ensureTcpConnection(true)) {
+    if (ensureTcpConnection(false)) {
         resetReconnectBackoff();
     } else {
         increaseReconnectBackoff();
@@ -48,10 +50,7 @@ void DeviceApp::setup() {
 }
 
 void DeviceApp::loop() {
-    if (provisioningMode_) {
-        delay(100);
-        return;
-    }
+    pollProvisioningCommand();
 
     if (is_connected_to_tcp_server()) {
         processIncomingMessages();
@@ -79,9 +78,6 @@ void DeviceApp::loop() {
 void DeviceApp::loadCredentials() {
     wifiSsid_ = read_at_address(SSID_ADDR);
     wifiPassword_ = read_at_address(PASSW_ADDR);
-
-    wifiSsid_.trim();
-    wifiPassword_.trim();
 }
 
 void DeviceApp::provisionIdentityOverSerial(bool force) {
@@ -107,6 +103,8 @@ void DeviceApp::provisionIdentityOverSerial(bool force) {
             if (line.length() == 0) {
                 continue;
             }
+
+            if (line == "WIFI_SETUP") { startAP(); continue; }
 
             StaticJsonDocument<256> doc;
             DeserializationError err = deserializeJson(doc, line);
@@ -199,14 +197,18 @@ bool DeviceApp::ensureTcpConnection(bool blocking) {
     return true;
 }
 
-void DeviceApp::enterProvisioningMode() {
-    if (provisioningMode_) {
-        return;
+void DeviceApp::pollProvisioningCommand() {
+    while (Serial.available()) {
+        const char c = Serial.read();
+        if (c == '\n') {
+            if (setupCommand_ == "WIFI_SETUP") startAP();
+            setupCommand_ = "";
+            loadCredentials();
+        } else if (c != '\r') {
+            setupCommand_ += c;
+            if (setupCommand_.length() > 32) setupCommand_ = "invalid";
+        }
     }
-
-    provisioningMode_ = true;
-    Serial.println("Starting provisioning access point...");
-    startAP();
 }
 
 void DeviceApp::registerMessageHandlers() {

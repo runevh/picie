@@ -29,3 +29,16 @@ void write_at_address(int addr, const String &s)
     EEPROM.write(addr + len, 0);
     EEPROM.commit();
 }
+
+bool write_wifi_credentials(const String &ssid, const String &password) {
+    if (ssid.length() == 0 || ssid.length() > 32 || password.length() < 8 || password.length() > 63) return false;
+    uint8_t previous[128];
+    for (size_t i = 0; i < 128; ++i) previous[i] = EEPROM.read(i);
+    for (size_t i = 0; i < 64; ++i) {
+        EEPROM.write(SSID_ADDR + i, i < ssid.length() ? ssid[i] : 0);
+        EEPROM.write(PASSW_ADDR + i, i < password.length() ? password[i] : 0);
+    }
+    if (EEPROM.commit()) return true;
+    for (size_t i = 0; i < 128; ++i) EEPROM.write(i, previous[i]);
+    return false;
+}
